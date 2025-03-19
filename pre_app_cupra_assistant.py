@@ -39,7 +39,7 @@ header {visibility: hidden;}
 footer {visibility: hidden}
 
 /* Forzar fondo blanco en toda la aplicación */
-html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+html, body, [data-testid="stAppViewContainer"],[data-testid="stApp"] {
     background-color: #ffffff !important;
     color: #000000 !important;
 }
@@ -49,6 +49,24 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
     html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
         background-color: #ffffff !important;
         color: #000000 !important;
+    }
+
+    /* Asegurar que el contenedor del textarea tenga fondo blanco y eliminar padding */
+    div[data-baseweb="textarea"], 
+    div[data-baseweb="base-input"], 
+    div[data-testid="stChatInputContainer"], 
+    div.st-emotion-cache-yd4u6l {
+        background-color: #ffffff !important; 
+        padding: 0 !important; 
+        margin: 0 !important;
+        border-radius: 20px !important;       
+        box-shadow: none !important;         
+        outline: none !important;
+    }
+
+    /* Eliminar padding dentro del contenedor */
+    div.st-emotion-cache-yd4u6l {
+        padding-left: 0px !important;
     }
 }
 
@@ -96,20 +114,7 @@ div.stChatMessage {
     display: none;
 }
 
-/* Asegurar que el contenedor del textarea tenga fondo blanco y eliminar padding */
-div[data-baseweb="textarea"], 
-div[data-baseweb="base-input"], 
-div[data-testid="stChatInputContainer"], 
-div.st-emotion-cache-yd4u6l {
-    background-color: #ffffff !important; 
-    padding: 0 !important; 
-    margin: 0 !important;
-    border-radius: 20px !important;       
-    box-shadow: none !important;         
-    outline: none !important;
-}
-
-/* Eliminar padding dentro del contenedor */
+/* Eliminar padding del contenedor del textarea */
 div.st-emotion-cache-yd4u6l {
     padding-left: 0px !important;
 }
