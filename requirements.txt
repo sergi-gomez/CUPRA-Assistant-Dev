@@ -1,0 +1,6 @@
+
+streamlit
+openai
+azure-cosmos
+st-star-rating
+requests
