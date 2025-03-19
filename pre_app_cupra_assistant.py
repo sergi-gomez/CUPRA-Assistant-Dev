@@ -51,22 +51,10 @@ html, body, [data-testid="stAppViewContainer"],[data-testid="stApp"] {
         color: #000000 !important;
     }
 
-    /* Asegurar que el contenedor del textarea tenga fondo blanco y eliminar padding */
-    div[data-baseweb="textarea"], 
-    div[data-baseweb="base-input"], 
-    div[data-testid="stChatInputContainer"], 
-    div.st-emotion-cache-yd4u6l {
-        background-color: #ffffff !important; 
-        padding: 0 !important; 
-        margin: 0 !important;
-        border-radius: 20px !important;       
-        box-shadow: none !important;         
-        outline: none !important;
-    }
-
-    /* Eliminar padding dentro del contenedor */
-    div.st-emotion-cache-yd4u6l {
-        padding-left: 0px !important;
+    /* Eliminar padding/margin en modo oscuro para el div problemático */
+    .st-emotion-cache-x1bvup {
+        padding: 0px !important;
+        margin: 0px !important;
     }
 }
 
@@ -114,9 +102,31 @@ div.stChatMessage {
     display: none;
 }
 
-/* Eliminar padding del contenedor del textarea */
-div.st-emotion-cache-yd4u6l {
-    padding-left: 0px !important;
+/* Eliminar padding y márgenes en los elementos del textarea */
+div[data-baseweb="textarea"], 
+div[data-baseweb="base-input"], 
+div[data-testid="stChatInputContainer"], 
+div.st-emotion-cache-yd4u6l, 
+textarea[data-testid="stChatInputTextArea"] {
+    background-color: #ffffff !important;
+    padding: 0px !important;  
+    margin: 0px !important;  
+    border-radius: 20px !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Ajustar padding también en modo oscuro */
+@media (prefers-color-scheme: dark) {
+    div[data-baseweb="textarea"], 
+    div[data-baseweb="base-input"], 
+    div[data-testid="stChatInputContainer"], 
+    div.st-emotion-cache-yd4u6l, 
+    textarea[data-testid="stChatInputTextArea"] {
+        background-color: #ffffff !important;
+        padding: 0px !important; 
+        margin: 0px !important;
+    }
 }
 
 /* Ajustar los estilos del campo de entrada */
