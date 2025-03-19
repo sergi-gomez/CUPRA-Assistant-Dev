@@ -10,15 +10,12 @@ from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from azure.cosmos import exceptions
 from streamlit_star_rating import st_star_rating
-from dotenv import load_dotenv #este codigo hay que eliminarlo para la app en PROD
 
 # Configuración de la página
 st.set_page_config(
     page_title="CUPRA AI Assistant",
     layout="wide",
 )
-
-load_dotenv()  # Cargar variables desde .env (este codigo hay que eliminarlo para la app de PROD)
 
 # CSS para ocultar la barra superior
 hide_streamlit_style = """
