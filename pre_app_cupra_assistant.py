@@ -1,4 +1,4 @@
-#CUPRA AI Assistant, entorno PRE, v2 
+#CUPRA AI Assistant, entorno PRE, v1 
 
 import streamlit as st 
 import time
@@ -56,6 +56,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
 p, ul, li {
             color: #000000 !important;
         }
+
         div[data-testid="stChatMessage"] p, 
         div[data-testid="stChatMessage"] ul, 
         div[data-testid="stChatMessage"] li {
@@ -64,12 +65,12 @@ p, ul, li {
 
 /*Estilos para el título y calificación */
         .stCaption {
-            color: #8B8B8B !important; /* Cambia el color aquí */
-            font-size: 14px !important; /* Forzar a 14px */
+            color: #8B8B8B !important; 
+            font-size: 14px !important; 
             font-weight: normal;
             line-height: 1.5;
             margin: 0;
-            text-align: left; /* Centrar el texto horizontalmente */
+            text-align: left; 
         }
 
 /* Estilo específico para el mensaje de éxito */
@@ -81,59 +82,54 @@ p, ul, li {
 div[data-testid="stBottomBlockContainer"] {
         bottom: 0;
         width: 100%;
-        background-color: #ffffff !important;  /* Asegura visibilidad */
+        background-color: #ffffff !important;
         padding: 10px;
         box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
 }
 
- div.stChatMessage {
+div.stChatMessage {
         background-color: #ffffff !important;
-    }
+}
 
 /* Ocultar los iconos predeterminados */
 .stChatMessage > div:first-child {
     display: none;
 }
 
-/* Asegurar que el contenedor del textarea tenga fondo blanco */
-div[data-baseweb="textarea"], div[data-baseweb="base-input"] {
-    background-color: #ffffff !important; /* Fuerza el fondo blanco */
-    padding: 0 !important; /* Elimina el padding */
-    margin: 0 !important; /* Elimina cualquier margen */
-    
+/* Asegurar que el contenedor del textarea tenga fondo blanco y eliminar padding */
 div[data-baseweb="textarea"], 
 div[data-baseweb="base-input"], 
 div[data-testid="stChatInputContainer"], 
 div.st-emotion-cache-yd4u6l {
+    background-color: #ffffff !important; 
+    padding: 0 !important; 
+    margin: 0 !important;
     border-radius: 20px !important;       
     box-shadow: none !important;         
-    padding: 0 !important;               
-    margin: 0 !important;                 
-    background-color: #ffffff !important;
-    outline: none !important; /
+    outline: none !important;
 }
 
-div.st-emotion-cache-yd4u6l > div {
-    padding: 0 !important;
-    margin: 0 !important;
-    background-color: #ffffff !important;
+/* Eliminar padding dentro del contenedor */
+div.st-emotion-cache-yd4u6l {
+    padding-left: 0px !important;
 }
 
-/* Estilos para el campo de entrada del chat */
+/* Ajustar los estilos del campo de entrada */
 textarea[aria-label="Enter your message"] {
-    font-family: 'CupraScreen-Book', 'sans-serif' !important; /* Cambia la fuente */
+    font-family: 'CupraScreen-Book', 'sans-serif' !important; 
     font-size: 12px !important; 
-    color: #000000 !important; /* Cambia el color de la letra negra */
+    color: #000000 !important; 
     background-color: #ffffff !important;
-    caret-color: #8B8B8B !important; /* Cambia el color del cursor a gris claro */ 
-    border: none !important; /* Elimina bordes innecesarios */
-    padding: 5px 10px !important; /* Ajusta padding si es necesario */
+    caret-color: #8B8B8B !important; 
+    border: none !important;
+    padding: 5px 10px !important;
 }
 
 /* Estilos para el placeholder del campo de entrada */
 textarea[aria-label="Enter your message"]::placeholder {
-    color: #8B8B8B !important; /* Cambia el color del placeholder a gris claro */
+    color: #8B8B8B !important;
     background-color: #ffffff !important;
+}
 
 </style>
 
@@ -202,7 +198,6 @@ def update_user_active_time():
 
 def update_assistant_active_time(assistant_start_time):
     """
-    Se debe llamar cuando el asistente finaliza su respuesta.
     Calcula el tiempo transcurrido desde assistant_start_time hasta ahora y lo acumula.
     """
     end_time = time.time()
