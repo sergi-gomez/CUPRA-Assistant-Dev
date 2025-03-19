@@ -6,8 +6,8 @@ name: Build and deploy Python app to Azure Web App - app-sea-vx3-cupravirtualass
 
 on:
   push:
-    branches:
-      - main
+    #branches:
+      #- main
   workflow_dispatch:
 
 jobs:
