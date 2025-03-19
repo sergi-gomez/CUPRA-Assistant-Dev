@@ -44,6 +44,21 @@ html, body, [data-testid="stAppViewContainer"],[data-testid="stApp"] {
     color: #000000 !important;
 }
 
+/* Eliminar padding, margen y ajustar border-radius en textarea y contenedores */
+div[data-baseweb="textarea"], 
+div[data-baseweb="base-input"], 
+div[data-testid="stChatInputContainer"], 
+div.st-emotion-cache-yd4u6l, 
+textarea[data-testid="stChatInputTextArea"], 
+.st-emotion-cache-1yk2xem {
+    background-color: #ffffff !important;
+    padding: 0px !important;  
+    margin: 0px !important;  
+    border-radius: 20px !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
 /* Asegurar fondo blanco en modo oscuro también */
 @media (prefers-color-scheme: dark) {
     html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
@@ -51,10 +66,12 @@ html, body, [data-testid="stAppViewContainer"],[data-testid="stApp"] {
         color: #000000 !important;
     }
 
-    /* Eliminar padding/margin en modo oscuro para el div problemático */
-    .st-emotion-cache-x1bvup {
+    /* Eliminar padding/margin y forzar border-radius en modo oscuro */
+    .st-emotion-cache-x1bvup,
+    .st-emotion-cache-hkjmcg {
         padding: 0px !important;
         margin: 0px !important;
+        border-radius: 20px !important;
     }
 }
 
@@ -100,33 +117,6 @@ div.stChatMessage {
 /* Ocultar los iconos predeterminados */
 .stChatMessage > div:first-child {
     display: none;
-}
-
-/* Eliminar padding y márgenes en los elementos del textarea */
-div[data-baseweb="textarea"], 
-div[data-baseweb="base-input"], 
-div[data-testid="stChatInputContainer"], 
-div.st-emotion-cache-yd4u6l, 
-textarea[data-testid="stChatInputTextArea"] {
-    background-color: #ffffff !important;
-    padding: 0px !important;  
-    margin: 0px !important;  
-    border-radius: 20px !important;
-    box-shadow: none !important;
-    outline: none !important;
-}
-
-/* Ajustar padding también en modo oscuro */
-@media (prefers-color-scheme: dark) {
-    div[data-baseweb="textarea"], 
-    div[data-baseweb="base-input"], 
-    div[data-testid="stChatInputContainer"], 
-    div.st-emotion-cache-yd4u6l, 
-    textarea[data-testid="stChatInputTextArea"] {
-        background-color: #ffffff !important;
-        padding: 0px !important; 
-        margin: 0px !important;
-    }
 }
 
 /* Ajustar los estilos del campo de entrada */
