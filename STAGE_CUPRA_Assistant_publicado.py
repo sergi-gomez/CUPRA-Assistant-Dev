@@ -43,6 +43,11 @@ html, body, [data-testid="stAppViewContainer"],[data-testid="stApp"] {
     color: #000000 !important;
 }
 
+/* Forzar texto negro en tablas */
+table, thead th, tbody td {
+    color: #000000 !important;
+}
+
 /* Eliminar padding, margen y ajustar border-radius en textarea y contenedores */
 div[data-baseweb="textarea"], 
 div[data-baseweb="base-input"], 
@@ -62,6 +67,11 @@ textarea[data-testid="stChatInputTextArea"],
 @media (prefers-color-scheme: dark) {
     html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
         background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+
+     /* Forzar texto negro en tablas en modo oscuro */
+    table, thead th, tbody td {
         color: #000000 !important;
     }
 
@@ -243,7 +253,6 @@ def get_existing_duration(thread_id):
 def save_conversation_in_cosmos(thread_id, conversation, rating, current_interaction_time):
     """
     Suma el tiempo de la interacción actual a la duración previa (almacenada en Cosmos) y lo guarda.
-    Se utiliza el rating persistente (si ya fue asignado) para que no se reinicie.
     """
     previous_duration = get_existing_duration(thread_id)
     new_total = previous_duration + current_interaction_time
@@ -320,26 +329,8 @@ def save_conversation_history(all_messages, rating=None):
 def get_icon_svg():
     return '<img src="https://www.cupraofficial.com/content/dam/public/cupra-website/piramide.svg" width="32" height="32" alt="icono" style="display:block;">'
 
-def app1():
-    
-    assistant_id = "asst_y5oxfA5Z1PQOl3k6I8CScfe8" #Assistant ID de test
-  
-    # Inicializamos las variables de tiempo activo, si aún no existen
-    if "user_active_time" not in st.session_state:
-        st.session_state["user_active_time"] = 0
-    if "assistant_active_time" not in st.session_state:
-        st.session_state["assistant_active_time"] = 0
-
-    # Asegura que cada hilo tenga su ID único
-    def ensure_single_thread_id_app1():
-        if "app1_thread_id" not in st.session_state:
-            thread = client.beta.threads.create()
-            st.session_state.app1_thread_id = thread.id
-        return st.session_state.app1_thread_id
-
-    
-    # Genera la respuesta del asistente en tiempo real
-    def stream_generator(prompt, thread_id):
+# Genera la respuesta del asistente en tiempo real
+def stream_generator(prompt, thread_id, assistant_id):
         
         # Resetea el tiempo activo de la interacción actual
         st.session_state["current_user_active"] = USER_ACTIVE_FIXED_TIME  # se suma una vez al enviar el mensaje
@@ -372,7 +363,6 @@ def app1():
         
         # Mide el tiempo de respuesta del asistente
         interaction_assistant_time = time.time() - assistant_start_time
-        # Si quisieras registrar este valor por separado:
         st.session_state["current_assistant_active"] = interaction_assistant_time
 
         # Actualiza la variable global acumulada
@@ -382,7 +372,25 @@ def app1():
         current_interaction_total = USER_ACTIVE_FIXED_TIME + interaction_assistant_time
         print(f"[LOG] Tiempo de interacción actual (Usuario + Asistente): {current_interaction_total:.2f} s")
 
-        # Inicializa el historial del chat
+# Asegura que cada hilo tenga su ID único
+def ensure_single_thread_id():
+        if "app1_thread_id" not in st.session_state:
+            thread = client.beta.threads.create()
+            st.session_state.app1_thread_id = thread.id
+        return st.session_state.app1_thread_id
+
+def app1():
+    
+    #Assistant ID de TEST
+    assistant_id = os.getenv('assistant_id_test') 
+
+    # Inicializamos las variables de tiempo activo, si aún no existen
+    if "user_active_time" not in st.session_state:
+        st.session_state["user_active_time"] = 0
+    if "assistant_active_time" not in st.session_state:
+        st.session_state["assistant_active_time"] = 0
+
+    # Inicializa el historial del chat
     if 'app1_start_chat' not in st.session_state:
         st.session_state.app1_start_chat = True
 
@@ -454,7 +462,7 @@ def app1():
     prompt = st.chat_input("Enter your message", max_chars=100)
 
     if prompt:
-        thread_id = ensure_single_thread_id_app1()
+        thread_id = ensure_single_thread_id()
 
         # Mostrar el mensaje del usuario
         with st.chat_message("user"):
@@ -479,10 +487,10 @@ def app1():
         with st.chat_message("assistant"):
             response_placeholder = st.empty()
             response = ""
-            cleaned_response = ""  # Inicializa la variable para evitar errores
-            icon_svg = get_icon_svg().strip()  # Asegurar que el SVG se usa directamente
+            cleaned_response = ""  
+            icon_svg = get_icon_svg().strip() 
 
-            for chunk in stream_generator(prompt, thread_id):
+            for chunk in stream_generator(prompt, thread_id, assistant_id):
                 response = chunk
                 cleaned_response = clean_annotations(response)
                 
@@ -499,7 +507,7 @@ def app1():
 
                 """, unsafe_allow_html=True)
         
-            response = cleaned_response  # Asegurar que la variable response sea consistente
+            response = cleaned_response  #Asegurar que la variable response sea consistente
 
         # Añadir la respuesta al historial
         st.session_state.app1_messages.append({"role": "assistant", "content": response})
@@ -547,11 +555,11 @@ def app1():
                     # Guarda el rating de forma persistente (y no se reinicia)
                     st.session_state["persistent_rating"] = stars  
                     st.session_state["star_rating_shown"] = True
-                    thread_id = ensure_single_thread_id_app1()
+                    thread_id = ensure_single_thread_id()
 
                     # Actualizar la última respuesta con el rating
                     if st.session_state.app1_messages and len(st.session_state.app1_messages) > 0:
-                        st.session_state.app1_messages[-1]["rating"] = stars  # Añadir rating a la última respuesta
+                        st.session_state.app1_messages[-1]["rating"] = stars  #Añadir rating a la última respuesta
 
                     save_conversation_history(st.session_state.app1_messages)
 
@@ -562,7 +570,7 @@ def app1():
 
     # Ocultar las estrellas si el contador alcanza el límite
     if "star_rating_timer" in st.session_state and not st.session_state.get("star_rating_shown", False):  
-        if st.session_state["star_rating_timer"] > 1:  # Ejemplo: después de 2 iteraciones
+        if st.session_state["star_rating_timer"] > 1:  
             st.session_state["star_rating_shown"] = True  # Ocultar el widget
             del st.session_state["star_rating_timer"]  # Limpiar el contador
 
