@@ -196,6 +196,32 @@ container = database.create_container_if_not_exists(
     offer_throughput=400
 )
 
+# JavaScript para interceptar clics en enlaces y enviar eventos a Adobe
+tracking_script = """
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    document.body.addEventListener("click", function(event) {
+        let target = event.target;
+        while (target && target.tagName !== "A") {
+            target = target.parentElement;
+        }
+        if (target && target.href) {
+            dynamic_dataLayer.call("internalLink", {
+                eventName: "clickCTA",
+                moduleComponent: "cupra-ai-assistant",
+                CTALabel: target.textContent.trim(),  // Captura el texto del enlace
+                CTAType: "link-CTA",
+                linkURL: target.href
+            });
+        }
+    }, true);
+});
+</script>
+"""
+
+# Inyectar el script en el frontend
+st.components.v1.html(tracking_script, height=0)
+
 # Función para eliminar anotaciones del texto
 def clean_annotations(text):
     return re.sub(r'【.*?†source】', '', text)
@@ -384,6 +410,9 @@ def app1():
     #Assistant ID de TEST
     assistant_id = os.getenv('assistant_id_test') 
 
+    #Assistant ID de PROD
+    #assistant_id = os.getenv('assistant_id')
+
     # Inicializamos las variables de tiempo activo, si aún no existen
     if "user_active_time" not in st.session_state:
         st.session_state["user_active_time"] = 0
@@ -405,6 +434,34 @@ def app1():
             f"<p style='font-size:12px; color:#000000; margin:0; text-align:left;'>{current_time}</p>",
             unsafe_allow_html=True,
             )
+
+        #Script para capturar clics en enlaces dentro del iframe
+        st.markdown("""
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                document.body.addEventListener("click", function(event) {
+                    var target = event.target;
+
+                    while (target && target.tagName !== "A") {
+                        target = target.parentElement;
+                    }
+
+                    if (target && target.href) {
+                        var label = target.textContent.trim() || target.getAttribute("title") || target.href;
+                        var linkURL = target.href;
+
+                        window.parent.postMessage({
+                            eventName: "clickCTA",
+                            moduleComponent: "cupra-ai-assistant",
+                            CTALabel: label,
+                            CTAType: "link-CTA",
+                            linkURL: linkURL
+                        }, "*");
+                    }
+                }, true);
+        });
+        </script>
+        """, unsafe_allow_html=True)
 
         # Mostrar el mensaje de bienvenida solo una vez y asegurarse de que permanezca
         if len(st.session_state.app1_messages) == 0:  # Solo si el historial está vacío
@@ -519,7 +576,8 @@ def app1():
         print(f"Assistant (cleaned): {cleaned_response}")
 
     # Mostrar las estrellas después de la tercera iteración y si no se ha puntuado antes
-    if show_star_rating and not st.session_state.get("star_rating_shown", False):
+    if (len(st.session_state.app1_messages) == 7) or ((len(st.session_state.app1_messages) == 9) and (not st.session_state.get("star_rating_given", False))):
+
         # Contenedor compacto
         with st.container():
             # Estilo CSS personalizado para ajustar el espaciado
@@ -551,10 +609,12 @@ def app1():
                     st.markdown('<div class="custom-success">✅ Thank you for your feedback! We can continue talking if you have any further questions or concerns.</div>', unsafe_allow_html=True)
 
                     # Actualizar estado
-                    st.session_state["star_rating_given"] = True
+                    if len(st.session_state.app1_messages) == 7:
+                        st.session_state["star_rating_given"] = True
+
                     # Guarda el rating de forma persistente (y no se reinicia)
                     st.session_state["persistent_rating"] = stars  
-                    st.session_state["star_rating_shown"] = True
+
                     thread_id = ensure_single_thread_id()
 
                     # Actualizar la última respuesta con el rating
@@ -562,18 +622,7 @@ def app1():
                         st.session_state.app1_messages[-1]["rating"] = stars  #Añadir rating a la última respuesta
 
                     save_conversation_history(st.session_state.app1_messages)
-
-                # Incrementar el contador de tiempo
-                if "star_rating_timer" not in st.session_state:
-                    st.session_state["star_rating_timer"] = 0
-                st.session_state["star_rating_timer"] += 1
-
-    # Ocultar las estrellas si el contador alcanza el límite
-    if "star_rating_timer" in st.session_state and not st.session_state.get("star_rating_shown", False):  
-        if st.session_state["star_rating_timer"] > 1:  
-            st.session_state["star_rating_shown"] = True  # Ocultar el widget
-            del st.session_state["star_rating_timer"]  # Limpiar el contador
-
+                    
 def main():
    
     app1()
