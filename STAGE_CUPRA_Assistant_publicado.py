@@ -408,13 +408,11 @@ def ensure_single_thread_id():
 # Función para reemplazar cada URL por su versión HTML con onclick
 def replace_link(match):
     text, url = match.groups()
-    return f'''
-    <a href="{url}" target="_blank" rel="noopener noreferrer"
-       onclick="dynamic_dataLayer.call("internalLink", {{'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': '{text}', 'CTAType': 'link-CTA', 'linkURL': '{url}',}});"
-       style="color:blue; text-decoration:underline;">
-       {text}
-    </a>
-    '''
+    return f''' 
+    <div> <a href="{url}" target="_blank" rel="noopener noreferrer"
+            onclick="dynamic_dataLayer.call("internalLink", {{'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': '{text}', 'CTAType': 'link-CTA', 'linkURL': '{url}',}});"
+            style="color:blue; text-decoration:underline;">
+            {text} </a> </div> '''
 
 def app1():
     
@@ -477,9 +475,7 @@ def app1():
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
                                     {onclick_response}
-                            </p>
-                        </div>
-                    </div>
+        
                 """, unsafe_allow_html=True)
                    
             else:
