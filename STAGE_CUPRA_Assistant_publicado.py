@@ -405,6 +405,17 @@ def ensure_single_thread_id():
             st.session_state.app1_thread_id = thread.id
         return st.session_state.app1_thread_id
 
+# Función para reemplazar cada URL por su versión HTML con onclick
+def replace_link(match):
+    text, url = match.groups()
+    return f'''
+    <a href="{url}" target="_blank" rel="noopener noreferrer"
+       onclick="dynamic_dataLayer.call("internalLink", {'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': {text}, 'CTAType': 'link-CTA', 'linkURL': {url},});"
+       style="color:blue; text-decoration:underline;">
+       {text}
+    </a>
+    '''
+
 def app1():
     
     #Assistant ID de TEST
@@ -412,6 +423,9 @@ def app1():
 
     #Assistant ID de PROD
     #assistant_id = os.getenv('assistant_id')
+
+    #Expresión regular para detectar enlaces Markdown
+    pattern_link = r"\[(.*?)\]\((https?://.*?)\)"    
 
     # Inicializamos las variables de tiempo activo, si aún no existen
     if "user_active_time" not in st.session_state:
@@ -435,34 +449,6 @@ def app1():
             unsafe_allow_html=True,
             )
 
-        #Script para capturar clics en enlaces dentro del iframe
-        st.markdown("""
-            <script>
-                document.addEventListener("DOMContentLoaded", function() {
-                document.body.addEventListener("click", function(event) {
-                    var target = event.target;
-
-                    while (target && target.tagName !== "A") {
-                        target = target.parentElement;
-                    }
-
-                    if (target && target.href) {
-                        var label = target.textContent.trim() || target.getAttribute("title") || target.href;
-                        var linkURL = target.href;
-
-                        window.parent.postMessage({
-                            eventName: "clickCTA",
-                            moduleComponent: "cupra-ai-assistant",
-                            CTALabel: label,
-                            CTAType: "link-CTA",
-                            linkURL: linkURL
-                        }, "*");
-                    }
-                }, true);
-        });
-        </script>
-        """, unsafe_allow_html=True)
-
         # Mostrar el mensaje de bienvenida solo una vez y asegurarse de que permanezca
         if len(st.session_state.app1_messages) == 0:  # Solo si el historial está vacío
             st.session_state.app1_messages.append({
@@ -470,15 +456,14 @@ def app1():
                 "content": "👋 Hello! I´m CUPRA AI Assistant, your virtual assistant. How can I help you today? If you're curious about our latest models, need assistance, or just have a question, I'm here to help! For my use, I don't need any personal information, so please don't share it."
             })
 
-        st.session_state.app1_start_chat = False
-    show_star_rating = False  # Para habilitar el star rating a partir de la tercera iteración
-
     # Muestra el historial del chat (sin incluir la respuesta actual)
     for idx, message in enumerate(st.session_state.app1_messages):
         with st.chat_message(message["role"]):
             if message["role"] == "assistant":
                 # Mostrar la respuesta con el mismo formato que la primera vez
                 icon_svg = get_icon_svg().strip()  # Asegurar que el SVG se usa directamente
+                cleaned_response = clean_annotations(message['content'])
+                onclick_response = re.sub(pattern_link, replace_link, cleaned_response)
                 st.markdown(f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -20px;">
@@ -489,7 +474,7 @@ def app1():
                             <p style="font-size:12px; color:#000000; background-color:#F0F0F0; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
-                                    {clean_annotations(message['content'])}
+                                    {onclick_response}
                             </p>
                         </div>
                     </div>
@@ -512,9 +497,6 @@ def app1():
                     </div>
                 """, unsafe_allow_html=True)
                                         
-        if idx == 3 and "star_rating_given" not in st.session_state:
-            show_star_rating = True
-
     # Entrada del usuario
     prompt = st.chat_input("Enter your message", max_chars=100)
 
@@ -550,6 +532,7 @@ def app1():
             for chunk in stream_generator(prompt, thread_id, assistant_id):
                 response = chunk
                 cleaned_response = clean_annotations(response)
+                onclick_response = re.sub(pattern_link, replace_link, cleaned_response)
                 
                 response_placeholder.markdown(f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
@@ -560,7 +543,7 @@ def app1():
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
-                                {cleaned_response}
+                                {onclick_response}
 
                 """, unsafe_allow_html=True)
         
@@ -622,7 +605,7 @@ def app1():
                         st.session_state.app1_messages[-1]["rating"] = stars  #Añadir rating a la última respuesta
 
                     save_conversation_history(st.session_state.app1_messages)
-                    
+
 def main():
    
     app1()
