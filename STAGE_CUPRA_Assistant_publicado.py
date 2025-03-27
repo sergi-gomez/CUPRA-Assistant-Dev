@@ -410,7 +410,7 @@ def replace_link(match):
     text, url = match.groups()
     return f'''
     <a href="{url}" target="_blank" rel="noopener noreferrer"
-       onclick="dynamic_dataLayer.call("internalLink", {'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': {text}, 'CTAType': 'link-CTA', 'linkURL': {url},});"
+       onclick="dynamic_dataLayer.call("internalLink", {{'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': '{text}', 'CTAType': 'link-CTA', 'linkURL': '{url}',}});"
        style="color:blue; text-decoration:underline;">
        {text}
     </a>
@@ -424,7 +424,7 @@ def app1():
     #Assistant ID de PROD
     #assistant_id = os.getenv('assistant_id')
 
-# Expresión regular para detectar enlaces Markdown
+    # Expresión regular para detectar enlaces Markdown
     pattern_link = r"\[(.*?)\]\((https?://.*?)\)"
 
     # Inicializamos las variables de tiempo activo, si aún no existen
