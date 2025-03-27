@@ -409,10 +409,13 @@ def ensure_single_thread_id():
 def replace_link(match):
     text, url = match.groups()
     return f''' 
-    <div> <a href="{url}" target="_blank" rel="noopener noreferrer"
+    <span> 
+        <a href="{url}" target="_blank" rel="noopener noreferrer"
             onclick="dynamic_dataLayer.call("internalLink", {{'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': '{text}', 'CTAType': 'link-CTA', 'linkURL': '{url}',}});"
             style="color:blue; text-decoration:underline;">
-            {text} </a> </div> '''
+            {text} 
+        </a> 
+    </span> '''
 
 def app1():
     
