@@ -424,8 +424,8 @@ def app1():
     #Assistant ID de PROD
     #assistant_id = os.getenv('assistant_id')
 
-    #Expresión regular para detectar enlaces Markdown
-    pattern_link = r"\[(.*?)\]\((https?://.*?)\)"    
+# Expresión regular para detectar enlaces Markdown
+    pattern_link = r"\[(.*?)\]\((https?://.*?)\)"
 
     # Inicializamos las variables de tiempo activo, si aún no existen
     if "user_active_time" not in st.session_state:
@@ -455,6 +455,8 @@ def app1():
                 "role": "assistant", 
                 "content": "👋 Hello! I´m CUPRA AI Assistant, your virtual assistant. How can I help you today? If you're curious about our latest models, need assistance, or just have a question, I'm here to help! For my use, I don't need any personal information, so please don't share it."
             })
+
+        st.session_state.app1_start_chat = False
 
     # Muestra el historial del chat (sin incluir la respuesta actual)
     for idx, message in enumerate(st.session_state.app1_messages):
@@ -496,7 +498,7 @@ def app1():
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
-                                        
+
     # Entrada del usuario
     prompt = st.chat_input("Enter your message", max_chars=100)
 
@@ -544,7 +546,6 @@ def app1():
                                 flex-grow: 1;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
                                 {onclick_response}
-
                 """, unsafe_allow_html=True)
         
             response = cleaned_response  #Asegurar que la variable response sea consistente
