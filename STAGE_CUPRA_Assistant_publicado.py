@@ -1,15 +1,17 @@
-#CUPRA AI Assistant, entorno PRE, Assistant ID Test
+#CUPRA AI Assistant, entorno PRE, Assistant ID Test 31/03/2025
 
-import streamlit as st 
+import streamlit as st
 import time
 import re
 import os
 import uuid
+import mistune
 from openai import AzureOpenAI
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from azure.cosmos import exceptions
 from streamlit_star_rating import st_star_rating
+from streamlit.components.v1 import html
 
 # Configuración de la página
 st.set_page_config(
@@ -196,32 +198,6 @@ container = database.create_container_if_not_exists(
     offer_throughput=400
 )
 
-# JavaScript para interceptar clics en enlaces y enviar eventos a Adobe
-tracking_script = """
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    document.body.addEventListener("click", function(event) {
-        let target = event.target;
-        while (target && target.tagName !== "A") {
-            target = target.parentElement;
-        }
-        if (target && target.href) {
-            dynamic_dataLayer.call("internalLink", {
-                eventName: "clickCTA",
-                moduleComponent: "cupra-ai-assistant",
-                CTALabel: target.textContent.trim(),  // Captura el texto del enlace
-                CTAType: "link-CTA",
-                linkURL: target.href
-            });
-        }
-    }, true);
-});
-</script>
-"""
-
-# Inyectar el script en el frontend
-st.components.v1.html(tracking_script, height=0)
-
 # Función para eliminar anotaciones del texto
 def clean_annotations(text):
     return re.sub(r'【.*?†source】', '', text)
@@ -328,7 +304,7 @@ def save_conversation_history(all_messages, rating=None):
         "timestamp": timestamp,
         "rating": rating,  
         "messages": []
-}
+    }
 
     # Añadir los mensajes sin el campo "role", agrupando a dos (user + assistant)
     user_message = None
@@ -408,22 +384,12 @@ def ensure_single_thread_id():
 # Función para reemplazar cada URL por su versión HTML con onclick
 def replace_link(match):
     text, url = match.groups()
-    return f''' 
-    <span> 
-        <a href="{url}" target="_blank" rel="noopener noreferrer"
-            onclick="dynamic_dataLayer.call("internalLink", {{'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': '{text}', 'CTAType': 'link-CTA', 'linkURL': '{url}',}});"
-            style="color:blue; text-decoration:underline;">
-            {text} 
-        </a> 
-    </span> '''
+    return f'''<a href="{url}" target="_blank" rel="noopener noreferrer" onclick="dynamic_dataLayer.call("internalLink", {{'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': '{text}', 'CTAType': 'link-CTA', 'linkURL': '{url}',}});" style="color:blue; text-decoration:underline;">{text}</a>'''
 
 def app1():
     
-    #Assistant ID de TEST
-    assistant_id = os.getenv('assistant_id_test') 
-
     #Assistant ID de PROD
-    #assistant_id = os.getenv('assistant_id')
+    assistant_id = os.getenv('assistant_id')
 
     # Expresión regular para detectar enlaces Markdown
     pattern_link = r"\[(.*?)\]\((https?://.*?)\)"
@@ -463,11 +429,23 @@ def app1():
     for idx, message in enumerate(st.session_state.app1_messages):
         with st.chat_message(message["role"]):
             if message["role"] == "assistant":
-                # Mostrar la respuesta con el mismo formato que la primera vez
-                icon_svg = get_icon_svg().strip()  # Asegurar que el SVG se usa directamente
+                # Asegurar que el SVG se usa directamente
+                icon_svg = get_icon_svg().strip()
+
+                # Mensaje original recibido por el asistente
                 cleaned_response = clean_annotations(message['content'])
+
+                # Se sustituyen los enlaces por las etiquetas HTML con el onclick incluido
                 onclick_response = re.sub(pattern_link, replace_link, cleaned_response)
-                st.markdown(f"""
+
+                # Convertir el resto de markdown a HTML
+                html_response = mistune.markdown(onclick_response)
+                html_response = re.sub(r"&lt;", "<", html_response)
+                html_response = re.sub(r"&gt;", ">", html_response)
+                html_response = re.sub(r"&quot;", "\"", html_response)
+
+                # Añadir los estilos CSS
+                full_html_response = f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -20px;">
                         <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}</div>
@@ -477,9 +455,15 @@ def app1():
                             <p style="font-size:12px; color:#000000; background-color:#F0F0F0; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
-                                    {onclick_response}
-        
-                """, unsafe_allow_html=True)
+                                    {html_response}
+                            </p>
+                        </div>
+                    </div>
+                """
+
+                # Renderizar en Streamlit
+                container = st.empty()
+                container.html(full_html_response)
                    
             else:
                 # Mensaje del usuario (A la derecha)
@@ -525,29 +509,46 @@ def app1():
         
         # Generar respuesta del asistente
         with st.chat_message("assistant"):
-            response_placeholder = st.empty()
+            #response_placeholder = st.empty()
+            container = st.empty()
             response = ""
             cleaned_response = ""  
             icon_svg = get_icon_svg().strip() 
 
             for chunk in stream_generator(prompt, thread_id, assistant_id):
+                # Mensaje recibido por el asistente (a trozos)
                 response = chunk
                 cleaned_response = clean_annotations(response)
+
+                # Se sustituyen los enlaces por las etiquetas HTML con el onclick incluido
                 onclick_response = re.sub(pattern_link, replace_link, cleaned_response)
-                
-                response_placeholder.markdown(f"""
+
+                # Convertir el resto de markdown a HTML
+                html_response = mistune.markdown(onclick_response)
+                html_response = re.sub(r"&lt;", "<", html_response)
+                html_response = re.sub(r"&gt;", ">", html_response)
+                html_response = re.sub(r"&quot;", "\"", html_response)
+
+                # Añadir los estilos CSS
+                full_html_response = f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -10px;">
-                        <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}
-                        </div>
+                        <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}</div>
                         <div style="background-color: #F0F0F0; padding: 10px; 
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
-                                {onclick_response}
-                """, unsafe_allow_html=True)
-        
-            response = cleaned_response  #Asegurar que la variable response sea consistente
+                                {html_response}
+                            </p>
+                        </div>
+                    </div>
+                """
+
+                # Renderizar en Streamlit
+                container.html(full_html_response)
+
+            #Asegurar que la variable response sea consistente
+            response = cleaned_response
 
         # Añadir la respuesta al historial
         st.session_state.app1_messages.append({"role": "assistant", "content": response})
