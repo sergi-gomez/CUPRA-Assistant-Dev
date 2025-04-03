@@ -1,17 +1,18 @@
-#CUPRA AI Assistant, entorno PRE, Assistant ID Test 31/03/2025
+#CUPRA AI Assistant, entorno TEST, v2.2, 03/04/2025, funcionalidad Ofertas ESP
 
-import streamlit as st
+import streamlit as st 
 import time
 import re
 import os
 import uuid
-import mistune
 from openai import AzureOpenAI
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from azure.cosmos import exceptions
 from streamlit_star_rating import st_star_rating
-from streamlit.components.v1 import html
+import requests
+from bs4 import BeautifulSoup
+from unidecode import unidecode
 
 # Configuración de la página
 st.set_page_config(
@@ -304,7 +305,7 @@ def save_conversation_history(all_messages, rating=None):
         "timestamp": timestamp,
         "rating": rating,  
         "messages": []
-    }
+}
 
     # Añadir los mensajes sin el campo "role", agrupando a dos (user + assistant)
     user_message = None
@@ -381,18 +382,87 @@ def ensure_single_thread_id():
             st.session_state.app1_thread_id = thread.id
         return st.session_state.app1_thread_id
 
-# Función para reemplazar cada URL por su versión HTML con onclick
-def replace_link(match):
-    text, url = match.groups()
-    return f'''<a href="{url}" target="_blank" rel="noopener noreferrer" onclick="dynamic_dataLayer.call("internalLink", {{'eventName': 'clickCTA', 'moduleComponent': 'cupra-ai-assistant', 'CTALabel': '{text}', 'CTAType': 'link-CTA', 'linkURL': '{url}',}});" style="color:blue; text-decoration:underline;">{text}</a>'''
+def extract_all_models_and_prices(url, base_url="https://www.cupraofficial.es/ofertas"):
+    """Extrae modelos, descripciones, precios y enlaces de la página de ofertas."""
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        return f"Error al obtener datos de la página: {e}"
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    offers = soup.find_all("div", class_="cmp-offer-cards-item__content")
+    
+    models_and_prices = {}
+    for offer in offers:
+        model_name_tag = offer.find("h2", class_="cmp-title__text")
+        description_tag = offer.find("div", class_="cmp-text")
+        price_tag = offer.find("span", class_="cmp-price__number")
+        price_suffix_tag = offer.find("span", class_="cmp-price__suffix")
+        info_link_tag = offer.find("a", class_="cmp-button", title="Más información")
+
+        if model_name_tag and description_tag and price_tag:
+            model_name = model_name_tag.text.strip()
+            description = description_tag.text.strip()
+            price = price_tag.text.strip().replace("\n", "").replace("€", "").strip()
+            price_suffix = price_suffix_tag.text.strip() if price_suffix_tag else ""
+            info_link = info_link_tag["href"] if info_link_tag else "#"
+
+            models_and_prices[model_name] = {
+                'description': description,
+                'price': f"{price}€ {price_suffix}".strip(),
+                'info_link': base_url + info_link  
+            }
+    
+    return models_and_prices
+
+# Función de búsqueda mejorada con imagen
+def search_web(query, models_and_prices):
+    """Busca modelos y precios relacionados con la consulta del usuario y genera una respuesta más natural."""
+    query_normalized = unidecode(query.lower()).replace("cupra", "").strip()
+
+    matched_models = []
+    for model in models_and_prices:
+        model_normalized = unidecode(model.lower())
+        model_words = model_normalized.split()
+
+        if any(word in query_normalized for word in model_words):
+            matched_models.append(model)
+
+    if not matched_models:
+        return None  
+
+    # Mensaje introductorio con el modelo específico
+    first_model_name = matched_models[0] if matched_models else "el modelo solicitado"
+    formatted_data = f"Los precios del {first_model_name} pueden variar según la configuración. Actualmente están disponibles las siguientes ofertas:\n\n"
+
+    for model in matched_models:
+        data = models_and_prices[model]
+        formatted_data += f"**{model} {data['description']}**\n"
+        formatted_data += f"**Por** {data['price']}€ (Sujeto a financiación).\n"
+        formatted_data += f"[Más información] ({data['info_link']})\n\n"
+
+    formatted_data += (
+    "Puedes encontrar todas las ofertas disponibles en [https://www.cupraofficial.es/ofertas]. Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
+    )
+
+    return formatted_data
 
 def app1():
     
     #Assistant ID de PROD
-    assistant_id = os.getenv('assistant_id')
+    #assistant_id = os.getenv('assistant_id')
 
-    # Expresión regular para detectar enlaces Markdown
-    pattern_link = r"\[(.*?)\]\((https?://.*?)\)"
+    #Assistant ID de TEST
+    assistant_id = os.getenv('assistant_id_test')
+
+    # Extraemos los modelos y precios de la página web una vez
+    url = "https://www.cupraofficial.es/ofertas"
+    models_and_prices = extract_all_models_and_prices(url)
+    
+    if isinstance(models_and_prices, str):
+        st.error(models_and_prices)  # Si hubo un error en la extracción
+        return
 
     # Inicializamos las variables de tiempo activo, si aún no existen
     if "user_active_time" not in st.session_state:
@@ -429,23 +499,9 @@ def app1():
     for idx, message in enumerate(st.session_state.app1_messages):
         with st.chat_message(message["role"]):
             if message["role"] == "assistant":
-                # Asegurar que el SVG se usa directamente
-                icon_svg = get_icon_svg().strip()
-
-                # Mensaje original recibido por el asistente
-                cleaned_response = clean_annotations(message['content'])
-
-                # Se sustituyen los enlaces por las etiquetas HTML con el onclick incluido
-                onclick_response = re.sub(pattern_link, replace_link, cleaned_response)
-
-                # Convertir el resto de markdown a HTML
-                html_response = mistune.markdown(onclick_response)
-                html_response = re.sub(r"&lt;", "<", html_response)
-                html_response = re.sub(r"&gt;", ">", html_response)
-                html_response = re.sub(r"&quot;", "\"", html_response)
-
-                # Añadir los estilos CSS
-                full_html_response = f"""
+                # Mostrar la respuesta con el mismo formato que la primera vez
+                icon_svg = get_icon_svg().strip()  # Asegurar que el SVG se usa directamente
+                st.markdown(f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -20px;">
                         <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}</div>
@@ -455,15 +511,11 @@ def app1():
                             <p style="font-size:12px; color:#000000; background-color:#F0F0F0; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
-                                    {html_response}
+                                    {clean_annotations(message['content'])}
                             </p>
                         </div>
                     </div>
-                """
-
-                # Renderizar en Streamlit
-                container = st.empty()
-                container.html(full_html_response)
+                """, unsafe_allow_html=True)
                    
             else:
                 # Mensaje del usuario (A la derecha)
@@ -481,13 +533,38 @@ def app1():
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
-
+                                        
     # Entrada del usuario
     prompt = st.chat_input("Enter your message", max_chars=100)
 
     if prompt:
         thread_id = ensure_single_thread_id()
 
+        # Extraer el historial de mensajes recientes
+        last_messages = [msg["content"] for msg in st.session_state.app1_messages[-2:]]  # Últimos 2 mensajes
+
+        # Detectar si el usuario ha preguntado sobre precios anteriormente
+        recent_price_query = any("precio" in msg.lower() or "Por precio:" in msg for msg in last_messages)
+
+        # Detectar si la consulta es sobre precios o modelos
+        related_to_prices = any(word in prompt.lower() for word in ["precio", "coste", "cuesta", "vale"])
+
+        # Si no menciona precio pero antes sí se habló de precios, asumir que sigue preguntando por precios
+        if not related_to_prices and recent_price_query:
+            related_to_prices = True  # Se activa automáticamente la búsqueda de precios
+
+        if related_to_prices:
+            car_data_text = search_web(prompt, models_and_prices)
+        else:
+            car_data_text = None
+
+        # Construir el mensaje para el chatbot
+        if car_data_text:
+            user_prompt = f"{prompt}\n\n{car_data_text}"
+        else:
+            user_prompt = prompt  # Si no hay coincidencias, solo pasa el mensaje original
+
+        
         # Mostrar el mensaje del usuario
         with st.chat_message("user"):
             st.markdown(f"""
@@ -509,46 +586,29 @@ def app1():
         
         # Generar respuesta del asistente
         with st.chat_message("assistant"):
-            #response_placeholder = st.empty()
-            container = st.empty()
+            response_placeholder = st.empty()
             response = ""
             cleaned_response = ""  
             icon_svg = get_icon_svg().strip() 
 
-            for chunk in stream_generator(prompt, thread_id, assistant_id):
-                # Mensaje recibido por el asistente (a trozos)
+            for chunk in stream_generator(user_prompt, thread_id, assistant_id):
                 response = chunk
                 cleaned_response = clean_annotations(response)
-
-                # Se sustituyen los enlaces por las etiquetas HTML con el onclick incluido
-                onclick_response = re.sub(pattern_link, replace_link, cleaned_response)
-
-                # Convertir el resto de markdown a HTML
-                html_response = mistune.markdown(onclick_response)
-                html_response = re.sub(r"&lt;", "<", html_response)
-                html_response = re.sub(r"&gt;", ">", html_response)
-                html_response = re.sub(r"&quot;", "\"", html_response)
-
-                # Añadir los estilos CSS
-                full_html_response = f"""
+                
+                response_placeholder.markdown(f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -10px;">
-                        <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}</div>
+                        <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}
+                        </div>
                         <div style="background-color: #F0F0F0; padding: 10px; 
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
-                                {html_response}
-                            </p>
-                        </div>
-                    </div>
-                """
+                                {cleaned_response}
 
-                # Renderizar en Streamlit
-                container.html(full_html_response)
-
-            #Asegurar que la variable response sea consistente
-            response = cleaned_response
+                """, unsafe_allow_html=True)
+        
+            response = cleaned_response  #Asegurar que la variable response sea consistente
 
         # Añadir la respuesta al historial
         st.session_state.app1_messages.append({"role": "assistant", "content": response})
@@ -603,7 +663,7 @@ def app1():
 
                     # Actualizar la última respuesta con el rating
                     if st.session_state.app1_messages and len(st.session_state.app1_messages) > 0:
-                        st.session_state.app1_messages[-1]["rating"] = stars  #Añadir rating a la última respuesta
+                        st.session_state.app1_messages[-1]["rating"] = stars  
 
                     save_conversation_history(st.session_state.app1_messages)
 
