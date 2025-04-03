@@ -4,3 +4,5 @@ openai
 azure-cosmos
 st-star-rating
 requests
+beautifulsoup4
+unidecode
