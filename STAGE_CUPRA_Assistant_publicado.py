@@ -443,18 +443,22 @@ def search_web(query, models_and_prices):
         formatted_data += f"[Más información] ({data['info_link']})\n\n"
 
     formatted_data += (
-    "Puedes encontrar todas las ofertas disponibles en [https://www.cupraofficial.es/ofertas]. Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
+    "Puedes encontrar todas las ofertas disponibles en (https://www.cupraofficial.es/ofertas). Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
     )
 
     return formatted_data
 
 def convert_links(text):
-    # Convertir Markdown [Texto](URL) a HTML
+    # Casos tipo [https://url](https://url)
+    same_url_pattern = r'\[(https?://[^\]]+)\]\(\1\)'
+    text = re.sub(same_url_pattern, r'<a href="\1" target="_blank">\1</a>', text)
+
+    # Casos tipo [Texto](https://url)
     markdown_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
     text = re.sub(markdown_pattern, r'<a href="\2" target="_blank">\1</a>', text)
 
-    # Convertir URLs sueltas a HTML
-    url_pattern = r'(?<!href=")(https?://[^\s]+)'  # Evita que afecte a URLs ya convertidas
+    # URLs sueltas
+    url_pattern = r'(?<!href=")(https?://[^\s<]+)'
     text = re.sub(url_pattern, r'<a href="\1" target="_blank">\1</a>', text)
 
     return text
