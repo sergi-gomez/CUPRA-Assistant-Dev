@@ -443,7 +443,7 @@ def search_web(query, models_and_prices):
         formatted_data += f"[Más información] ({data['info_link']})\n\n"
 
     formatted_data += (
-    "Puedes encontrar todas las ofertas disponibles en (https://www.cupraofficial.es/ofertas). Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
+    "Puedes encontrar todas las ofertas disponibles [aqui] (https://www.cupraofficial.es/ofertas). Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
     )
 
     return formatted_data
@@ -575,7 +575,12 @@ def app1():
 
         # Construir el mensaje para el chatbot
         if car_data_text:
-            user_prompt = f"{prompt}\n\n{car_data_text}"
+            user_prompt = (
+                f"{prompt}\n\n"
+                "IMPORTANTE: A continuación se proporciona información oficial sobre ofertas y modelos extraída del sitio web de CUPRA España. "
+                "Incluye *toda* esta información en tu respuesta sin omitir ni modificar nada:\n\n"
+                f"{car_data_text}"
+            )
         else:
             user_prompt = prompt  # Si no hay coincidencias, solo pasa el mensaje original
 
