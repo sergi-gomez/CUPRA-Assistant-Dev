@@ -13,15 +13,12 @@ from streamlit_star_rating import st_star_rating
 import requests
 from bs4 import BeautifulSoup
 from unidecode import unidecode
-from dotenv import load_dotenv #este codigo hay que eliminarlo para la app en PROD
 
 # Configuración de la página
 st.set_page_config(
     page_title="CUPRA AI Assistant",
     layout="wide",
 )
-
-load_dotenv()  # Cargar variables desde .env (este codigo hay que eliminarlo para la app de PROD)
 
 # CSS para ocultar la barra superior
 hide_streamlit_style = """
@@ -441,9 +438,9 @@ def search_web(query, models_and_prices):
 
     for model in matched_models:
         data = models_and_prices[model]
-        formatted_data += f"**{model} {data['description']}**\n"
-        formatted_data += f"**Por** {data['price']}€ (Sujeto a financiación).\n"
-        formatted_data += f"[Más información] ({data['info_link']})\n\n"
+        formatted_data += f"•**{model} {data['description']}**\n"
+        formatted_data += f"•**Por:** {data['price']}€ (*Sujeto a financiación).\n"
+        formatted_data += f"•[Más información] ({data['info_link']})\n\n"
 
     formatted_data += (
     "Puedes encontrar todas las ofertas disponibles [aqui] (https://www.cupraofficial.es/ofertas). Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
@@ -586,7 +583,6 @@ def app1():
             )
         else:
             user_prompt = prompt  # Si no hay coincidencias, solo pasa el mensaje original
-
         
         # Mostrar el mensaje del usuario
         with st.chat_message("user"):
@@ -630,7 +626,7 @@ def app1():
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
-                                {cleaned_response}
+                                {cleaned_response_with_links}
 
                 """, unsafe_allow_html=True)
         
