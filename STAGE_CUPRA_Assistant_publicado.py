@@ -186,7 +186,7 @@ client = AzureOpenAI(
 )
 
 # Inicialización del cliente Cosmos DB
-CONNECTION_STRING = os.getenv('COSMOS_DB_CONNECTION_STRING')
+CONNECTION_STRING = 'AccountEndpoint=https://cosno-sea-vx3-cupravirtualassist-test.documents.azure.com:443/;AccountKey=Cuc1in30WjRhHHcRYGtrQ2GZqzp5Sg1s94MZhaoARFKtZsvmcH0vOVVq6M6Yb5TOE2hsR2LFPeEPACDbL9eUOA==;' 
 DATABASE_NAME = os.getenv('COSMOS_DB_DATABASE_NAME')
 CONTAINER_NAME = os.getenv('COSMOS_DB_CONTAINER_NAME')
 
