@@ -1,4 +1,4 @@
-#CUPRA AI Assistant, entorno PROD, v2.4, 10/04/2025 (Precio ESP)
+#CUPRA AI Assistant, entorno TEST, v2.4, Publicado: 10/04/2025, funcionalidad Ofertas ESP
 
 import streamlit as st 
 import time
@@ -10,7 +10,9 @@ from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
 from azure.cosmos import exceptions
 from streamlit_star_rating import st_star_rating
-
+import requests
+from bs4 import BeautifulSoup
+from unidecode import unidecode
 
 # Configuración de la página
 st.set_page_config(
@@ -184,7 +186,7 @@ client = AzureOpenAI(
 )
 
 # Inicialización del cliente Cosmos DB
-CONNECTION_STRING = 'AccountEndpoint=https://cosno-sea-vx3-cupravirtualassist-test.documents.azure.com:443/;AccountKey=Cuc1in30WjRhHHcRYGtrQ2GZqzp5Sg1s94MZhaoARFKtZsvmcH0vOVVq6M6Yb5TOE2hsR2LFPeEPACDbL9eUOA==;' 
+CONNECTION_STRING = os.getenv('COSMOS_DB_CONNECTION_STRING')
 DATABASE_NAME = os.getenv('COSMOS_DB_DATABASE_NAME')
 CONTAINER_NAME = os.getenv('COSMOS_DB_CONTAINER_NAME')
 
@@ -380,6 +382,72 @@ def ensure_single_thread_id():
             st.session_state.app1_thread_id = thread.id
         return st.session_state.app1_thread_id
 
+def extract_all_models_and_prices(url, base_url="https://www.cupraofficial.es/ofertas"):
+    """Extrae modelos, descripciones, precios y enlaces de la página de ofertas."""
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        return f"Error al obtener datos de la página: {e}"
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    offers = soup.find_all("div", class_="cmp-offer-cards-item__content")
+    
+    models_and_prices = {}
+    for offer in offers:
+        model_name_tag = offer.find("h2", class_="cmp-title__text")
+        description_tag = offer.find("div", class_="cmp-text")
+        price_tag = offer.find("span", class_="cmp-price__number")
+        price_suffix_tag = offer.find("span", class_="cmp-price__suffix")
+        info_link_tag = offer.find("a", class_="cmp-button", title="Más información")
+
+        if model_name_tag and description_tag and price_tag:
+            model_name = model_name_tag.text.strip()
+            description = description_tag.text.strip()
+            price = price_tag.text.strip().replace("\n", "").replace("€", "").strip()
+            price_suffix = price_suffix_tag.text.strip() if price_suffix_tag else ""
+            info_link = info_link_tag["href"] if info_link_tag else "#"
+
+            models_and_prices[model_name] = {
+                'description': description,
+                'price': f"{price}€ {price_suffix}".strip(),
+                'info_link': base_url + info_link  
+            }
+    
+    return models_and_prices
+
+# Función de búsqueda mejorada con imagen
+def search_web(query, models_and_prices):
+    """Busca modelos y precios relacionados con la consulta del usuario y genera una respuesta más natural."""
+    query_normalized = unidecode(query.lower()).replace("cupra", "").strip()
+
+    matched_models = []
+    for model in models_and_prices:
+        model_normalized = unidecode(model.lower())
+        model_words = model_normalized.split()
+
+        if any(word in query_normalized for word in model_words):
+            matched_models.append(model)
+
+    if not matched_models:
+        return None  
+
+    # Mensaje introductorio con el modelo específico
+    first_model_name = matched_models[0] if matched_models else "el modelo solicitado"
+    formatted_data = f"Los precios del {first_model_name} pueden variar según la configuración. Actualmente están disponibles las siguientes ofertas:\n\n"
+
+    for model in matched_models:
+        data = models_and_prices[model]
+        formatted_data += f"**{model} {data['description']}**\n"
+        formatted_data += f"**Por** {data['price']}€ (Sujeto a financiación).\n"
+        formatted_data += f"[Más información] ({data['info_link']})\n\n"
+
+    formatted_data += (
+    "Puedes encontrar todas las ofertas disponibles en [https://www.cupraofficial.es/ofertas]. Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
+    )
+
+    return formatted_data
+
 def convert_links(text):
     # Convertir Markdown [Texto](URL) a HTML
     markdown_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
@@ -394,7 +462,18 @@ def convert_links(text):
 def app1():
     
     #Assistant ID de PROD
-    assistant_id = os.getenv('assistant_id')
+    #assistant_id = os.getenv('assistant_id')
+
+    #Assistant ID de TEST
+    assistant_id = os.getenv('assistant_id_test')
+
+    # Extraemos los modelos y precios de la página web una vez
+    url = "https://www.cupraofficial.es/ofertas"
+    models_and_prices = extract_all_models_and_prices(url)
+    
+    if isinstance(models_and_prices, str):
+        st.error(models_and_prices)  # Si hubo un error en la extracción
+        return
 
     # Inicializamos las variables de tiempo activo, si aún no existen
     if "user_active_time" not in st.session_state:
@@ -472,6 +551,31 @@ def app1():
     if prompt:
         thread_id = ensure_single_thread_id()
 
+        # Extraer el historial de mensajes recientes
+        last_messages = [msg["content"] for msg in st.session_state.app1_messages[-2:]]  # Últimos 2 mensajes
+
+        # Detectar si el usuario ha preguntado sobre precios anteriormente
+        recent_price_query = any("precio" in msg.lower() or "Por precio:" in msg for msg in last_messages)
+
+        # Detectar si la consulta es sobre precios o modelos
+        related_to_prices = any(word in prompt.lower() for word in ["precio", "coste", "cuesta", "vale"])
+
+        # Si no menciona precio pero antes sí se habló de precios, asumir que sigue preguntando por precios
+        if not related_to_prices and recent_price_query:
+            related_to_prices = True  # Se activa automáticamente la búsqueda de precios
+
+        if related_to_prices:
+            car_data_text = search_web(prompt, models_and_prices)
+        else:
+            car_data_text = None
+
+        # Construir el mensaje para el chatbot
+        if car_data_text:
+            user_prompt = f"{prompt}\n\n{car_data_text}"
+        else:
+            user_prompt = prompt  # Si no hay coincidencias, solo pasa el mensaje original
+
+        
         # Mostrar el mensaje del usuario
         with st.chat_message("user"):
             st.markdown(f"""
@@ -498,10 +602,9 @@ def app1():
             cleaned_response = ""  
             icon_svg = get_icon_svg().strip() 
 
-            for chunk in stream_generator(prompt, thread_id, assistant_id):
+            for chunk in stream_generator(user_prompt, thread_id, assistant_id):
                 response = chunk
                 cleaned_response = clean_annotations(response)
-                cleaned_response = convert_links(cleaned_response)  # Convierte todas las URLs a HTML
                 
                 response_placeholder.markdown(f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
@@ -571,7 +674,7 @@ def app1():
 
                     # Actualizar la última respuesta con el rating
                     if st.session_state.app1_messages and len(st.session_state.app1_messages) > 0:
-                        st.session_state.app1_messages[-1]["rating"] = stars  #Añadir rating a la última respuesta
+                        st.session_state.app1_messages[-1]["rating"] = stars  
 
                     save_conversation_history(st.session_state.app1_messages)
 
