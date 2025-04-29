@@ -1,4 +1,4 @@
-#CUPRA AI Assistant, entorno TEST, v2.4, Publicado: 10/04/2025, funcionalidad Ofertas ESP
+#CUPRA AI Assistant, entorno TEST, v2.4, Publicado: 29/04/2025, funcionalidad Ofertas ESP
 
 import streamlit as st 
 import time
@@ -439,7 +439,7 @@ def search_web(query, models_and_prices):
     for model in matched_models:
         data = models_and_prices[model]
         formatted_data += f"•**{model} {data['description']}**\n"
-        formatted_data += f"•**Por:** {data['price']}€ (*Sujeto a financiación).\n"
+        formatted_data += f"•**Desde:** {data['price']}€ (*Sujeto a financiación).\n"
         formatted_data += f"•[Más información] ({data['info_link']})\n\n"
 
     formatted_data += (
@@ -562,7 +562,7 @@ def app1():
         recent_price_query = any("precio" in msg.lower() or "Por precio:" in msg for msg in last_messages)
 
         # Detectar si la consulta es sobre precios o modelos
-        related_to_prices = any(word in prompt.lower() for word in ["precio", "coste", "cuesta", "vale"])
+        related_to_prices = any(word in prompt.lower() for word in ["precio", "coste", "cuesta", "vale", "oferta"])
 
         # Si no menciona precio pero antes sí se habló de precios, asumir que sigue preguntando por precios
         if not related_to_prices and recent_price_query:
