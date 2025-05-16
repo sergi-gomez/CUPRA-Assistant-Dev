@@ -1,4 +1,4 @@
-#CUPRA AI Assistant, entorno TEST, v2.6, No Publicado: 16/05/2025, funcionalidad Ofertas ESP + cuotas
+#CUPRA AI Assistant, entorno TEST, v2.6, Publicado: 16/05/2025, funcionalidad Ofertas ESP + cuotas
 
 import streamlit as st 
 import time
@@ -147,7 +147,7 @@ div.stChatMessage {
 }
 
 /* Ajustar los estilos del campo de entrada */
-textarea[aria-label="Enter your message"] {
+textarea[aria-label="Escribe tu mensaje aquí..."] {
     font-family: 'CupraScreen-Book', 'sans-serif' !important; 
     font-size: 12px !important; 
     color: #000000 !important; 
@@ -158,7 +158,7 @@ textarea[aria-label="Enter your message"] {
 }
 
 /* Estilos para el placeholder del campo de entrada */
-textarea[aria-label="Enter your message"]::placeholder {
+textarea[aria-label="Escribe tu mensaje aquí..."]::placeholder {
     color: #8B8B8B !important;
     background-color: #ffffff !important;
 }
@@ -521,27 +521,27 @@ def search_web(query, models_and_prices):
             formatted_data = (
                 "Los precios pueden variar según la configuracion. "
                 "Actualmente de las ofertas disponibles el modelo más barato es:\n\n"
-                "Nota: Se muestran por separado el modelo más barato con precio fijo y el más barato con cuota mensual, si existen ambos.\n\n"
+                "Mostrar por separado el modelo más barato con precio fijo y el más barato con cuota mensual, si existen ambos.\n\n"
             )
             if cheapest_fijo:
                 model, price, data = cheapest_fijo
                 formatted_data += (
-                    f"•{model} {data['description']}\n"
-                    f"\t•Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f'\t•Tipo de financiación: [{data["offer_type"]}](https://www.cupraofficial.es/servicios-financieros)\n'
-                formatted_data += f"\t•[Más información]({data['info_link']})\n\n"
+                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
+                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
             
             if cheapest_cuota:
                 model, price, data = cheapest_cuota
                 formatted_data += (
-                    f"•{model} {data['description']}\n"
-                    f"\t•Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f'\t•Tipo de financiación: [{data["offer_type"]}](https://www.cupraofficial.es/servicios-financieros)\n'
-                formatted_data += f"\t•[Más información]({data['info_link']})\n\n"
+                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
+                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
             if not cheapest_fijo and not cheapest_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
             return formatted_data
@@ -550,27 +550,27 @@ def search_web(query, models_and_prices):
             formatted_data = (
                 "Los precios pueden variar según la configuracion. "
                 "Actualmente de las ofertas disponibles el modelo más caro es:\n\n"
-                "Nota: Se muestran por separado el modelo más caro con precio fijo y el más caro con cuota mensual, si existen ambos.\n\n"
+                "Mostrar por separado el modelo más caro con precio fijo y el más caro con cuota mensual, si existen ambos.\n\n"
             )
             if most_expensive_fijo:
                 model, price, data = most_expensive_fijo
                 formatted_data += (
-                    f"•{model} {data['description']}\n"
-                    f"\t•Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f'\t•Tipo de financiación: [{data["offer_type"]}](https://www.cupraofficial.es/servicios-financieros)\n'
-                formatted_data += f"\t•[Más información]({data['info_link']})\n\n"
+                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
+                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
             
             if most_expensive_cuota:
                 model, price, data = most_expensive_cuota
                 formatted_data += (
-                    f"•{model} {data['description']}\n"
-                    f"\t•Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f'\t•Tipo de financiación: [{data["offer_type"]}](https://www.cupraofficial.es/servicios-financieros)\n'
-                formatted_data += f"\t•[Más información]({data['info_link']})\n\n"
+                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
+                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
             if not most_expensive_fijo and not most_expensive_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
             return formatted_data
@@ -600,21 +600,21 @@ def search_web(query, models_and_prices):
 
     for model in matched_models:
         data = filtered_models_and_prices[model]
-        formatted_data += f"•{model} {data['description']}\n"
+        formatted_data += f"• **{model} {data['description']}**\n"
         if data['price_type'] == "cuota":
             formatted_data += f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
         else:
             formatted_data += f"\t• Desde: {data['price']} {data['price_suffix']}\n"
         # Añadir tipo de financiación como enlace si existe
         if data.get('offer_type'):
-            formatted_data += f'\t•Tipo de financiación: [{data["offer_type"]}](https://www.cupraofficial.es/servicios-financieros)\n'
+            formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
         if data['price_type'] == "cuota" and data['price_suffix']:
             detalles = data['price_suffix'].split('|')
             for detalle in detalles:
                 detalle = detalle.strip()
                 if detalle:
                     formatted_data += f"\t• {detalle}\n"
-        formatted_data += f"\t• [Más información]({data['info_link']})\n\n"
+        formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
 
     formatted_data += (
         "Puedes encontrar todas las ofertas disponibles [aqui](https://www.cupraofficial.es/ofertas). "
@@ -624,17 +624,17 @@ def search_web(query, models_and_prices):
     return formatted_data
 
 def convert_links(text):
-    # Casos tipo [https://url](https://url)
+    # Casos tipo [https://url](https://url) → <a href="url" ...>Enlace</a>
     same_url_pattern = r'\[(https?://[^\]]+)\]\(\1\)'
-    text = re.sub(same_url_pattern, r'<a href="\1" target="_blank">\1</a>', text)
+    text = re.sub(same_url_pattern, r'<a href="\1" target="_blank">Enlace</a>', text)
 
-    # Casos tipo [Texto](https://url)
+    # Casos tipo [Texto](https://url) → <a href="url" ...>Texto</a>
     markdown_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
     text = re.sub(markdown_pattern, r'<a href="\2" target="_blank">\1</a>', text)
 
-    # URLs sueltas
+    # URLs sueltas → <a href="url" ...>Ver más</a>
     url_pattern = r'(?<!href=")(https?://[^\s<]+)'
-    text = re.sub(url_pattern, r'<a href="\1" target="_blank">\1</a>', text)
+    text = re.sub(url_pattern, r'<a href="\1" target="_blank">Ver más</a>', text)
 
     return text
 
@@ -680,7 +680,7 @@ def app1():
         if len(st.session_state.app1_messages) == 0:  # Solo si el historial está vacío
             st.session_state.app1_messages.append({
                 "role": "assistant", 
-                "content": "👋 ¡Hola! Soy el Asistente Virtual de CUPRA. ¿En qué puedo ayudarte hoy? Si tienes curiosidad por conocer nuestros últimos modelos, necesitas ayuda o simplemente quieres hacer una pregunta, ¡estoy aquí para ayudarte! No necesito ningún dato personal para ayudarte, así que por favor, no lo compartas."})
+                "content": "👋 ¡Hola! Soy el Asistente Virtual de CUPRA, impulsado por IA. Si quieres explorar nuestros modelos, descubrir novedades o tienes alguna consulta, estaré encantado de acompañarte. No necesito datos personales, así que no es necesario compartirlos."})
 
         st.session_state.app1_start_chat = False
 
@@ -694,9 +694,9 @@ def app1():
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -20px;">
                         <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}</div>
-                        <div style="background-color: #F0F0F0; padding: 12px; 
-                                border-radius: 20px 20px 20px 0px; border:0px solid #D1D1D1; 
-                                flex-grow: 1;">
+                        <div style="max-width: 600px; width: 100%; background-color: #F0F0F0; padding: 12px; 
+                                border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
+                                flex-grow: 1; word-break: break-word; overflow-x: auto;">
                             <p style="font-size:12px; color:#000000; background-color:#F0F0F0; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
@@ -724,16 +724,10 @@ def app1():
                 """, unsafe_allow_html=True)
                                         
     # Entrada del usuario
-    prompt = st.chat_input("Enter your message", max_chars=100)
+    prompt = st.chat_input("Escribe tu mensaje aquí...", max_chars=100)
 
     if prompt:
         thread_id = ensure_single_thread_id()
-
-        # Extraer el historial de mensajes recientes
-        last_messages = [msg["content"] for msg in st.session_state.app1_messages[-2:]]  # Últimos 2 mensajes
-
-        # Detectar si el usuario ha preguntado sobre precios anteriormente
-        recent_price_query = any("precio" in msg.lower() or "Por precio:" in msg for msg in last_messages)
 
         # Detectar si la consulta es sobre precios o modelos (solo la pregunta actual)
         related_to_prices = any(word in prompt.lower() for word in ["precio", "coste", "cuesta", "cuota", "vale", "oferta", "barato", "caro"])
@@ -793,9 +787,9 @@ def app1():
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -10px;">
                         <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}
                         </div>
-                        <div style="background-color: #F0F0F0; padding: 12px; 
+                        <div style="max-width: 600px; width: 100%; background-color: #F0F0F0; padding: 12px; 
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
-                                flex-grow: 1;">
+                                flex-grow: 1; word-break: break-word; overflow-x: auto;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
                                 {cleaned_response_with_links}
 
