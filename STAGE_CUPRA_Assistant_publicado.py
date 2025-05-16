@@ -521,7 +521,7 @@ def search_web(query, models_and_prices):
             formatted_data = (
                 "Los precios pueden variar según la configuracion. "
                 "Actualmente de las ofertas disponibles el modelo más barato es:\n\n"
-                "Mostrar por separado el modelo más barato con precio fijo y el más barato con cuota mensual, si existen ambos.\n\n"
+                "Nota: Si existen ambos mostrar por separado el modelo más caro con precio fijo y el más caro con cuota mensual, sino existe ambos no digas nada.\n\n"
             )
             if cheapest_fijo:
                 model, price, data = cheapest_fijo
@@ -530,8 +530,9 @@ def search_web(query, models_and_prices):
                     f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
-                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación: <a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
+                formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             
             if cheapest_cuota:
                 model, price, data = cheapest_cuota
@@ -540,8 +541,9 @@ def search_web(query, models_and_prices):
                     f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
-                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación: <a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
+                formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             if not cheapest_fijo and not cheapest_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
             return formatted_data
@@ -550,7 +552,7 @@ def search_web(query, models_and_prices):
             formatted_data = (
                 "Los precios pueden variar según la configuracion. "
                 "Actualmente de las ofertas disponibles el modelo más caro es:\n\n"
-                "Mostrar por separado el modelo más caro con precio fijo y el más caro con cuota mensual, si existen ambos.\n\n"
+                "Nota: Si existen ambos mostrar por separado el modelo más caro con precio fijo y el más caro con cuota mensual, sino existe ambos no digas nada.\n\n"
             )
             if most_expensive_fijo:
                 model, price, data = most_expensive_fijo
@@ -559,8 +561,9 @@ def search_web(query, models_and_prices):
                     f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
-                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación: <a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
+                formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             
             if most_expensive_cuota:
                 model, price, data = most_expensive_cuota
@@ -569,8 +572,9 @@ def search_web(query, models_and_prices):
                     f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
-                formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación: <a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
+                formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             if not most_expensive_fijo and not most_expensive_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
             return formatted_data
@@ -607,14 +611,15 @@ def search_web(query, models_and_prices):
             formatted_data += f"\t• Desde: {data['price']} {data['price_suffix']}\n"
         # Añadir tipo de financiación como enlace si existe
         if data.get('offer_type'):
-            formatted_data += f"\t• Tipo de financiación: [{data['offer_type']}](https://www.cupraofficial.es/servicios-financieros)\n"
+            offer_type_text = data['offer_type']
+            formatted_data += f"\t• Tipo de financiación: <a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
         if data['price_type'] == "cuota" and data['price_suffix']:
             detalles = data['price_suffix'].split('|')
             for detalle in detalles:
                 detalle = detalle.strip()
                 if detalle:
                     formatted_data += f"\t• {detalle}\n"
-        formatted_data += f"\t• [Más información de la oferta] ({data['info_link']})\n\n"
+        formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
 
     formatted_data += (
         "Puedes encontrar todas las ofertas disponibles [aqui](https://www.cupraofficial.es/ofertas). "
@@ -635,6 +640,13 @@ def convert_links(text):
     # URLs sueltas → <a href="url" ...>Ver más</a>
     url_pattern = r'(?<!href=")(https?://[^\s<]+)'
     text = re.sub(url_pattern, r'<a href="\1" target="_blank">Ver más</a>', text)
+
+    # Convertir 'Tipo de financiación: texto' en enlace
+    text = re.sub(
+        r'Tipo de financiación: ([^\n<]+)',
+        r'Tipo de financiación: <a href="https://www.cupraofficial.es/servicios-financieros" target="_blank">\1</a>',
+        text
+    )
 
     return text
 
