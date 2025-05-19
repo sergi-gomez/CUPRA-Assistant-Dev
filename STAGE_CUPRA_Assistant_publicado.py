@@ -1,4 +1,4 @@
-#CUPRA AI Assistant, entorno TEST, v2.6, Publicado: 16/05/2025, funcionalidad Ofertas ESP + cuotas
+#CUPRA AI Assistant, entorno TEST, v2.6, Publicado: 19/05/2025, funcionalidad Ofertas ESP + cuotas
 
 import streamlit as st 
 import time
@@ -464,6 +464,21 @@ def search_web(query, models_and_prices):
     """Busca modelos y precios relacionados con la consulta del usuario y diferencia cuota mensual y precio fijo."""
     query_normalized = unidecode(query.lower())
 
+    # --- Detectar si hay un filtro de precio máximo ---
+    precio_max = None
+    tipo_precio = None  # "cuota" o "fijo"
+    import re
+    match = re.search(r'menos de\s*([\d\.]+)\s*(€|euros)?\s*(al mes|/mes|mes)?', query_normalized)
+    if match:
+        try:
+            precio_max = float(match.group(1).replace('.', '').replace(',', '.'))
+        except Exception:
+            precio_max = None
+        if match.group(3):  # Si hay "al mes" o "mes"
+            tipo_precio = "cuota"
+        else:
+            tipo_precio = "fijo"
+
     # --- Filtrado por tipo de motor ---
     engine_types = {
         "gasolina": ["gasolina", "petrol"],
@@ -491,6 +506,36 @@ def search_web(query, models_and_prices):
             return f"No se han encontrado ofertas para modelos con motor {selected_engine_type} en este momento."
     # --- FIN Filtrado por tipo de motor ---
 
+    # --- Nuevo filtrado por precio máximo ---
+    if precio_max is not None and tipo_precio:
+        filtered_models = []
+        for model, data in filtered_models_and_prices.items():
+            try:
+                price = float(data['price'].replace('.', '').replace(',', '.'))
+                if data['price_type'] == tipo_precio and price <= precio_max:
+                    filtered_models.append((model, data))
+            except Exception:
+                continue
+
+        if filtered_models:
+            formatted_data = (
+                f"Los precios pueden variar según la configuración. Actualmente puedes conseguir estos modelos por menos de {precio_max:.0f} € {'al mes' if tipo_precio=='cuota' else ''}:\n\n"
+            )
+            for model, data in filtered_models:
+                formatted_data += f"• **{model} {data['description']}**\n"
+                if tipo_precio == "cuota":
+                    formatted_data += f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
+                else:
+                    formatted_data += f"\t• Desde: {data['price']} {data['price_suffix']}\n"
+                if data.get('offer_type'):
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación: <a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
+                formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
+            return formatted_data
+        else:
+            return f"No se han encontrado modelos con {'cuota mensual' if tipo_precio=='cuota' else 'precio fijo'} por debajo de {precio_max:.0f} € en este momento."
+
+    # --- Resto de la función original ---
     busca_cuota = any(word in query_normalized for word in ["cuota", "mes", "precio mensual"])
     busca_barato = any(word in query_normalized for word in ["barato", "más barato", "mas barato", "barata", "baratos", "baratas"])
     busca_caro = "caro" in query_normalized
@@ -692,7 +737,7 @@ def app1():
         if len(st.session_state.app1_messages) == 0:  # Solo si el historial está vacío
             st.session_state.app1_messages.append({
                 "role": "assistant", 
-                "content": "👋 ¡Hola! Soy el Asistente Virtual de CUPRA, impulsado por IA. Si quieres explorar nuestros modelos, descubrir novedades o tienes alguna consulta, estaré encantado de acompañarte. No necesito datos personales, así que no es necesario compartirlos."})
+                "content": "👋 ¡Hola! Soy el Asistente Virtual de CUPRA, impulsado por IA. Si quieres explorar nuestros modelos, descubrir novedades o tienes alguna consulta, estaré encantado de ayudarte. No necesito datos personales, así que no es necesario compartirlos."})
 
         st.session_state.app1_start_chat = False
 
@@ -742,7 +787,7 @@ def app1():
         thread_id = ensure_single_thread_id()
 
         # Detectar si la consulta es sobre precios o modelos (solo la pregunta actual)
-        related_to_prices = any(word in prompt.lower() for word in ["precio", "coste", "cuesta", "cuota", "vale", "oferta", "barato", "caro"])
+        related_to_prices = any(word in prompt.lower() for word in ["precio", "coste", "cuesta", "cuota", "comprar", "vale", "oferta", "barato", "caro", "adquirir", "conseguir"])
 
         if related_to_prices:
             car_data_text = search_web(prompt, models_and_prices)
