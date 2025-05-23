@@ -309,6 +309,7 @@ def save_conversation_history(all_messages, rating=None):
 
     # Añadir los mensajes sin el campo "role", agrupando a dos (user + assistant)
     user_message = None
+    step_counter = 1  # ⬅️ contador para mantener orden
     
     for idx, msg in enumerate(all_messages):
         if msg["role"] == "user":
@@ -317,10 +318,12 @@ def save_conversation_history(all_messages, rating=None):
             assistant_message = clean_text(msg["content"])
 
             thread_entry["messages"].append({
+                "step": step_counter,  # ⬅️ agrega el paso
                 "User": user_message,
                 "Assistant": assistant_message,
             })
             user_message = None
+            step_counter += 1  # ⬅️ incrementa el paso
 
     # Suma el tiempo actual a la duración previa y guarda en Cosmos DB
     save_conversation_in_cosmos(thread_id, thread_entry["messages"], rating, current_interaction_time)
