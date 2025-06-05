@@ -13,15 +13,12 @@ from streamlit_star_rating import st_star_rating
 import requests
 from bs4 import BeautifulSoup
 from unidecode import unidecode
-from dotenv import load_dotenv #este codigo hay que eliminarlo para la app en PROD
 
 # Configuración de la página
 st.set_page_config(
     page_title="CUPRA AI Assistant",
     layout="wide",
 )
-
-load_dotenv()  # Cargar variables desde .env (este codigo hay que eliminarlo para la app de PROD)
 
 # CSS para ocultar la barra superior
 hide_streamlit_style = """
