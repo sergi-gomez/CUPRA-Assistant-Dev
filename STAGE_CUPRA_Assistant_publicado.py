@@ -1,10 +1,12 @@
-#CUPRA AI Assistant, entorno TEST, v2.8, Publicado: 05/06/2025, funcionalidad Ofertas ESP + cuotas + dispacher (intent) + Feedback Spain
+#CUPRA AI Assistant, entorno TEST, v2.9, Publicado: 13/06/2025, funcionalidad Ofertas ESP + cuotas + dispacher (intent) + Feedback Spain + funcionalidad URL 
 
 import streamlit as st 
 import time
 import re
 import os
 import uuid
+import mistune
+import urllib.parse
 from openai import AzureOpenAI
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
@@ -13,12 +15,64 @@ from streamlit_star_rating import st_star_rating
 import requests
 from bs4 import BeautifulSoup
 from unidecode import unidecode
+from streamlit_star_rating import st_star_rating
+from streamlit.components.v1 import html
+from dotenv import load_dotenv #este codigo hay que eliminarlo para la app en PROD
 
 # Configuración de la página
 st.set_page_config(
     page_title="CUPRA AI Assistant",
     layout="wide",
 )
+
+load_dotenv()  # Cargar variables desde .env (este codigo hay que eliminarlo para la app de PROD)
+
+# Obtener los parámetros de la página
+parameters = st.query_params
+
+# Inicializa la lista de URLs
+if "urls" not in st.session_state:
+    st.session_state.urls = []
+
+# Detectar el redirect en los parámetros de la página
+if ("redirect" in parameters) and ("thread_id" in parameters):
+    # Recuperar los parámetros
+    param_url = parameters["redirect"]
+    param_id = parameters["thread_id"]
+
+    # Obtener timestamp actual (segundo actual, como string)
+    url_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    # Inyectar HTML con JS que usa localStorage y timestamp
+    html(f"""
+    <div id="spinner" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 9999; display: none; text-align: center;">
+    <div style="border: 10px solid #f3f3f3; border-top: 10px solid #000000; border-radius: 50%;
+        width: 70px; height: 70px; animation: spin 1s linear infinite; margin: auto;"></div>
+    <p style="margin-top: 16px; font-size: 12px; color: #000000; font-family: 'CupraScreen-Book', sans-serif;"> Redirigiendo...</p>
+    </div>
+
+    <style>
+    @keyframes spin {{
+    0% {{ transform: rotate(0deg); }}
+    100% {{ transform: rotate(360deg); }}
+    }}
+    </style>
+
+    <script>
+    const currentTs = "{url_timestamp}";
+    const lastTs = localStorage.getItem("redirect_last_ts");
+    if (lastTs !== currentTs) {{
+        document.getElementById("spinner").style.display = "block";
+        localStorage.setItem("redirect_last_ts", currentTs);
+        setTimeout(() => {{
+            window.open("{param_url}", "_blank", "noopener,noreferrer");
+        }}, 500);
+    }}
+    </script>
+    """, height=200)
+
+
 
 # CSS para ocultar la barra superior
 hide_streamlit_style = """
@@ -189,12 +243,18 @@ client = AzureOpenAI(
 CONNECTION_STRING = 'AccountEndpoint=https://cosno-sea-vx3-cupravirtualassist-test.documents.azure.com:443/;AccountKey=Cuc1in30WjRhHHcRYGtrQ2GZqzp5Sg1s94MZhaoARFKtZsvmcH0vOVVq6M6Yb5TOE2hsR2LFPeEPACDbL9eUOA==;' 
 DATABASE_NAME = os.getenv('COSMOS_DB_DATABASE_NAME')
 CONTAINER_NAME = os.getenv('COSMOS_DB_CONTAINER_NAME')
+CONTAINER_STATUS_NAME = os.getenv('COSMOS_DB_CONTAINER_STATUS_NAME')
 
 # Conexión a Cosmos DB
 cosmos_client = CosmosClient.from_connection_string(CONNECTION_STRING)
 database = cosmos_client.create_database_if_not_exists(id=DATABASE_NAME)
 container = database.create_container_if_not_exists(
     id=CONTAINER_NAME,
+    partition_key=PartitionKey(path="/id"),
+    offer_throughput=400
+)
+container_status = database.create_container_if_not_exists(
+    id=CONTAINER_STATUS_NAME,
     partition_key=PartitionKey(path="/id"),
     offer_throughput=400
 )
@@ -271,6 +331,7 @@ def save_conversation_in_cosmos(thread_id, conversation, rating, current_interac
         'conversation': conversation,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'rating':  final_rating,  # Se añade el rating persistente (si existe)
+        'urls': st.session_state.get("urls", []),
         'duration_seconds': round(new_total, 2)  # Tiempo total acumulado para este thread
     }
     try:
@@ -279,6 +340,15 @@ def save_conversation_in_cosmos(thread_id, conversation, rating, current_interac
     except exceptions.CosmosHttpResponseError as e:
         print(f"Error al guardar la conversación en Cosmos DB: {e.message}")
 
+    conversation_status = {
+        'id': thread_id,
+        'session_state': dict(st.session_state)
+    }
+    try:
+        container_status.upsert_item(body=conversation_status)
+        print("Variable st.session_state guardada exitosamente en Cosmos DB.")
+    except exceptions.CosmosHttpResponseError as e:
+        print(f"Error al guardar la variable st.session_state en Cosmos DB: {e.message}")
 
 # Función para guardar el historial de conversaciones solo en Cosmos DB
 def save_conversation_history(all_messages, rating=None):
@@ -882,6 +952,53 @@ def intent_dispatcher(prompt, models_and_prices):
     elif intent == "llm":
         return prompt
 
+# Función para reemplazar cada URL markdown por su versión HTML
+def replace_link(match):
+    text, url = match.groups()
+    return f'''<a href="/?redirect={url}&thread_id={st.session_state.app1_thread_id}" target="_self" style="color:blue; text-decoration:underline;">{text}</a>'''
+
+# Función para generar el código HTML a partir de la respuesta del asistente
+def generate_html(response):
+    # Expresión regular para detectar enlaces Markdown
+    pattern_link = r"\[(.*?)\]\((https?://.*?)\)"
+
+    # Convertir todas las URLs a HTML
+    texto_html = re.sub(pattern_link, replace_link, response)
+
+    # Convertir el resto de markdown a HTML
+    texto_html = mistune.markdown(texto_html)
+
+    # Convertir algunos caracteres que están en formato web
+    texto_html = re.sub(r"&lt;", "<", texto_html)
+    texto_html = re.sub(r"&gt;", ">", texto_html)
+    texto_html = re.sub(r"&quot;", "\"", texto_html)
+
+    return texto_html
+
+# Detectar el redirect en los parámetros de la página
+if ("redirect" in parameters) and ("thread_id" in parameters):
+    # Recuperar los parámetros
+    param_url = parameters["redirect"]
+    param_id = parameters["thread_id"]
+
+    # Recuperar la variable session_state que está persistida en la base de datos
+    try:
+        item = container_status.read_item(item=param_id, partition_key=param_id)
+        st.session_state.update(item.get("session_state", {}))
+    except exceptions.CosmosResourceNotFoundError:
+        st.session_state.urls = []
+
+    # Registrar el nuevo click en el array
+    if not any(item["url_clicked"] == param_url for item in st.session_state.urls):
+        st.session_state.urls.append({"url_clicked": param_url})
+
+    # Volver a grabar en base de datos
+    save_conversation_history(st.session_state.app1_messages)
+
+    # Limpiar la variable redirect de la URL
+    st.query_params.clear()
+
+
 
 def app1():
     
@@ -945,10 +1062,8 @@ def app1():
                             <p style="font-size:12px; color:#000000; background-color:#F0F0F0; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
-                                    {clean_annotations(message['content'])}
-                            </p>
-                        </div>
-                    </div>
+                                    {generate_html(clean_annotations(message['content']))}
+
                 """, unsafe_allow_html=True)
                    
             else:
@@ -1024,10 +1139,10 @@ def app1():
             for chunk in stream_generator(user_prompt, thread_id, assistant_id):
                 response = chunk
                 cleaned_response = clean_annotations(response)
-
-                # Convertir las URLs en enlaces clicables
-                cleaned_response_with_links = convert_links(cleaned_response)
-                
+                print(f"Assistant: {cleaned_response}")
+                html_response = generate_html(cleaned_response)
+                print(f"Assistant: {html_response}")
+      
                 response_placeholder.markdown(f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -10px;">
@@ -1037,11 +1152,10 @@ def app1():
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1; word-break: break-word; overflow-x: auto;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
-                                {cleaned_response_with_links}
-                            
+                                {html_response}
                 """, unsafe_allow_html=True)
         
-            response = cleaned_response_with_links
+            response = cleaned_response
 
         # Añadir la respuesta al historial
         st.session_state.app1_messages.append({"role": "assistant", "content": response})
@@ -1051,6 +1165,11 @@ def app1():
 
         print(f"Assistant: {response}")
         print(f"Assistant (cleaned): {cleaned_response}")
+
+    # Elemento vacío que forzará el scroll
+    time.sleep(0.1)
+    st.markdown("<div id='bottom-marker'></div>", unsafe_allow_html=True)
+
 
     # Mostrar las estrellas después de la tercera iteración y si no se ha puntuado antes
     if (len(st.session_state.app1_messages) == 7) or ((len(st.session_state.app1_messages) == 9) and (not st.session_state.get("star_rating_given", False))):
