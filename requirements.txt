@@ -6,4 +6,4 @@ st-star-rating
 requests
 beautifulsoup4
 unidecode
-mistune
+mistune==2.0.5
