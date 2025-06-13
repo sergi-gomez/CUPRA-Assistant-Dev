@@ -17,15 +17,12 @@ from bs4 import BeautifulSoup
 from unidecode import unidecode
 from streamlit_star_rating import st_star_rating
 from streamlit.components.v1 import html
-from dotenv import load_dotenv #este codigo hay que eliminarlo para la app en PROD
 
 # Configuración de la página
 st.set_page_config(
     page_title="CUPRA AI Assistant",
     layout="wide",
 )
-
-load_dotenv()  # Cargar variables desde .env (este codigo hay que eliminarlo para la app de PROD)
 
 # Obtener los parámetros de la página
 parameters = st.query_params
