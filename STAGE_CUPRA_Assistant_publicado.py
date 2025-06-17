@@ -1,10 +1,12 @@
-#CUPRA AI Assistant, entorno TEST, v2.8, Publicado: 05/06/2025, funcionalidad Ofertas ESP + cuotas + dispacher (intent) + Feedback Spain
+#CUPRA AI Assistant, entorno TEST, v2.7, Publicado: No, funcionalidad Ofertas ESP + cuotas + dispacher (intent)
 
 import streamlit as st 
 import time
 import re
 import os
 import uuid
+import mistune
+import urllib.parse
 from openai import AzureOpenAI
 from datetime import datetime
 from azure.cosmos import CosmosClient, exceptions, PartitionKey
@@ -13,12 +15,62 @@ from streamlit_star_rating import st_star_rating
 import requests
 from bs4 import BeautifulSoup
 from unidecode import unidecode
+from streamlit_star_rating import st_star_rating
+from streamlit.components.v1 import html
 
 # Configuración de la página
 st.set_page_config(
     page_title="CUPRA AI Assistant",
     layout="wide",
 )
+
+# Obtener los parámetros de la página
+parameters = st.query_params
+
+# Inicializa la lista de URLs
+if "urls" not in st.session_state:
+    st.session_state.urls = []
+
+# Detectar el redirect en los parámetros de la página
+if ("redirect" in parameters) and ("thread_id" in parameters):
+    # Recuperar los parámetros
+    param_url = parameters["redirect"]
+    param_id = parameters["thread_id"]
+
+    # Obtener timestamp actual (segundo actual, como string)
+    url_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    # Inyectar HTML con JS que usa localStorage y timestamp
+    html(f"""
+    <div id="spinner" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 9999; display: none; text-align: center;">
+    <div style="border: 10px solid #f3f3f3; border-top: 10px solid #000000; border-radius: 50%;
+        width: 70px; height: 70px; animation: spin 1s linear infinite; margin: auto;"></div>
+    <p style="margin-top: 16px; font-size: 12px; color: #000000; font-family: 'CupraScreen-Book', sans-serif;"> Cargando...
+">Cargando...</p>
+    </div>
+
+    <style>
+    @keyframes spin {{
+    0% {{ transform: rotate(0deg); }}
+    100% {{ transform: rotate(360deg); }}
+    }}
+    </style>
+
+    <script>
+    const currentTs = "{url_timestamp}";
+    const lastTs = localStorage.getItem("redirect_last_ts");
+    if (lastTs !== currentTs) {{
+        document.getElementById("spinner").style.display = "block";
+        localStorage.setItem("redirect_last_ts", currentTs);
+        setTimeout(() => {{
+            window.open("{param_url}", "_blank", "noopener,noreferrer");
+        }}, 500);
+    }}
+    </script>
+    """, height=200)
+
+
 
 # CSS para ocultar la barra superior
 hide_streamlit_style = """
@@ -189,12 +241,18 @@ client = AzureOpenAI(
 CONNECTION_STRING = 'AccountEndpoint=https://cosno-sea-vx3-cupravirtualassist-test.documents.azure.com:443/;AccountKey=Cuc1in30WjRhHHcRYGtrQ2GZqzp5Sg1s94MZhaoARFKtZsvmcH0vOVVq6M6Yb5TOE2hsR2LFPeEPACDbL9eUOA==;' 
 DATABASE_NAME = os.getenv('COSMOS_DB_DATABASE_NAME')
 CONTAINER_NAME = os.getenv('COSMOS_DB_CONTAINER_NAME')
+CONTAINER_STATUS_NAME = os.getenv('COSMOS_DB_CONTAINER_STATUS_NAME')
 
 # Conexión a Cosmos DB
 cosmos_client = CosmosClient.from_connection_string(CONNECTION_STRING)
 database = cosmos_client.create_database_if_not_exists(id=DATABASE_NAME)
 container = database.create_container_if_not_exists(
     id=CONTAINER_NAME,
+    partition_key=PartitionKey(path="/id"),
+    offer_throughput=400
+)
+container_status = database.create_container_if_not_exists(
+    id=CONTAINER_STATUS_NAME,
     partition_key=PartitionKey(path="/id"),
     offer_throughput=400
 )
@@ -271,6 +329,7 @@ def save_conversation_in_cosmos(thread_id, conversation, rating, current_interac
         'conversation': conversation,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'rating':  final_rating,  # Se añade el rating persistente (si existe)
+        'urls': st.session_state.get("urls", []),
         'duration_seconds': round(new_total, 2)  # Tiempo total acumulado para este thread
     }
     try:
@@ -279,6 +338,15 @@ def save_conversation_in_cosmos(thread_id, conversation, rating, current_interac
     except exceptions.CosmosHttpResponseError as e:
         print(f"Error al guardar la conversación en Cosmos DB: {e.message}")
 
+    conversation_status = {
+        'id': thread_id,
+        'session_state': dict(st.session_state)
+    }
+    try:
+        container_status.upsert_item(body=conversation_status)
+        print("Variable st.session_state guardada exitosamente en Cosmos DB.")
+    except exceptions.CosmosHttpResponseError as e:
+        print(f"Error al guardar la variable st.session_state en Cosmos DB: {e.message}")
 
 # Función para guardar el historial de conversaciones solo en Cosmos DB
 def save_conversation_history(all_messages, rating=None):
@@ -325,12 +393,13 @@ def save_conversation_history(all_messages, rating=None):
             user_message = None
             step_counter += 1  # ⬅️ incrementa el paso
 
-    # Suma el tiempo actual a la duración previa y guarda en Cosmos DB
-    save_conversation_in_cosmos(thread_id, thread_entry["messages"], rating, current_interaction_time)
-    
     # Reinicia los contadores para la próxima interacción
     st.session_state["user_active_time"] = 0
     st.session_state["assistant_active_time"] = 0
+    
+    # Suma el tiempo actual a la duración previa y guarda en Cosmos DB
+    save_conversation_in_cosmos(thread_id, thread_entry["messages"], rating, current_interaction_time)
+    
 
 def get_icon_svg():
     return '<img src="https://www.cupraofficial.com/content/dam/public/cupra-website/piramide.svg" width="32" height="32" alt="icono" style="display:block;">'
@@ -378,25 +447,6 @@ def stream_generator(prompt, thread_id, assistant_id):
         current_interaction_total = USER_ACTIVE_FIXED_TIME + interaction_assistant_time
         print(f"[LOG] Tiempo de interacción actual (Usuario + Asistente): {current_interaction_total:.2f} s")
 
-# Diccionario global para asociar tipo de motor a etiqueta ambiental
-engine_label_map = {
-    "Híbrido enchufable (PHEV)": "Cero",
-    "Eléctrico": "Cero",
-    "Gasolina": "C",
-    "Híbrido (mHEV)": "ECO",
-    "Diésel": "C",
-    "Diesel": "C",
-    "GNC": "ECO",   # Gas Natural Comprimido
-    "GNL": "ECO",   # Gas Natural Licuado
-    "GLP": "ECO",   # Gas Licuado de Petróleo
-    "Gas": "ECO"
-}
-# Asegura que cada hilo tenga su ID único
-def ensure_single_thread_id():
-        if "app1_thread_id" not in st.session_state:
-            thread = client.beta.threads.create()
-            st.session_state.app1_thread_id = thread.id
-        return st.session_state.app1_thread_id
 
 def extract_all_models_and_prices(url, base_url="https://www.cupraofficial.es/ofertas"):
     """Extrae modelos, descripciones, precios, tipo de precio y enlaces de la página de ofertas."""
@@ -476,27 +526,6 @@ def extract_all_models_and_prices(url, base_url="https://www.cupraofficial.es/of
 
     return models_and_prices
 
-def calcular_total_cuota(data):
-    """
-    Calcula: entrada + (cuota mensual x meses) + cuota final.
-    """
-    try:
-        suffix = data.get("price_suffix", "").lower()
-        entrada_match = re.search(r"entrada[:\s]*([\d\.,]+)", suffix)
-        meses_match = re.search(r"(\d+)\s*mes(?:es)?", suffix)
-        cuota_final_match = re.search(r"cuota final.*?([\d\.,]+)", suffix)
-
-        entrada = float(entrada_match.group(1).replace('.', '').replace(',', '.')) if entrada_match else 0
-        meses = int(meses_match.group(1)) if meses_match else 0
-        cuota_mensual = float(data.get("price", "0").replace('.', '').replace(',', '.'))
-        cuota_final = float(cuota_final_match.group(1).replace('.', '').replace(',', '.')) if cuota_final_match else 0
-
-        total = entrada + (meses * cuota_mensual) + cuota_final
-        return round(total, 2)
-    except Exception:
-        return None
-
-
 def search_web(query, models_and_prices):
     """Busca modelos y precios relacionados con la consulta del usuario y diferencia cuota mensual y precio fijo."""
     query_normalized = unidecode(query.lower())
@@ -505,141 +534,72 @@ def search_web(query, models_and_prices):
     precio_max = None
     tipo_precio = None  # "cuota" o "fijo"
     import re
-
-    # 1. Patrón clásico: "menos de X €"
-    match = re.search(r'menos de\s*([\d\.]+)\s*(€|euros)?\s*(al mes|/mes|mes|cuota)?', query_normalized)
+    match = re.search(r'menos de\s*([\d\.]+)\s*(€|euros)?\s*(al mes|/mes|mes)?', query_normalized)
     if match:
         try:
             precio_max = float(match.group(1).replace('.', '').replace(',', '.'))
         except Exception:
             precio_max = None
-        if match.group(3):  # Si hay "al mes", "mes" o "cuota"
+        if match.group(3):  # Si hay "al mes" o "mes"
             tipo_precio = "cuota"
         else:
             tipo_precio = "fijo"
 
-    # 2. NUEVO: Detectar expresiones tipo "tengo 20000", "presupuesto de 35000", "por 30000", "hasta 25000", etc.
-    if precio_max is None:
-        presu_match = re.search(
-            r'(presupuesto|por|hasta|tengo|dispongo de|cuento con|máximo|maxima|maximo|máxima|menos de|inferior a|igual o menor a|no más de|no mas de|no superior a)?[^\d]{0,10}([\d\.]+)\s*(€|euros)?(\s*(al mes|mes|cuota))?',
-            query_normalized
-        )
-        if presu_match:
-            try:
-                precio_max = float(presu_match.group(2).replace('.', '').replace(',', '.'))
-            except Exception:
-                precio_max = None
-            # Si se menciona "al mes", "mes" o "cuota", se interpreta como cuota, si no, como fijo
-            if presu_match.group(5):
-                tipo_precio = "cuota"
-            else:
-                tipo_precio = "fijo"
-
-    # Si el usuario no ha especificado tipo_precio pero sí un presupuesto, asume precio fijo
-    if precio_max is not None and tipo_precio is None:
-        tipo_precio = "fijo"
-
     # --- Filtrado por tipo de motor ---
     engine_types = {
         "gasolina": ["gasolina", "petrol"],
-        "electrico": ["eléctrico", "electrico", "bev", "100% electrico", "100% eléctrico"],
-        "mhev": ["mhev", "micro hibridos", "micro-hibridos", "híbrido ligero", "hibrido ligero"],
-        "phev": ["phev", "híbrido enchufable", "hibrido enchufable"],
-        "hibrido": ["híbrido", "hibrido"]  # general
+        "eléctrico": ["eléctrico", "electrico", "bev", "100% electrico", "100% eléctrico", "cero","etiqueta cero"],
+        "híbrido": ["híbrido", "hibrido", "mhev", "micro hibridos", "micro-hibridos", "eco", "etiqueta eco"],
+        "hibrido enchufable": ["phev", "híbrido enchufable", "hibrido enchufable", "cero", "etiqueta cero"],
     }
-
     selected_engine_type = None
     for key, keywords in engine_types.items():
         if any(word in query_normalized for word in keywords):
             selected_engine_type = key
             break
 
-    # --- Filtrado por etiquetas ambientales múltiples ---
-    etiquetas_ambientales = []
-    if "etiqueta eco" in query_normalized or "eco" in query_normalized:
-        etiquetas_ambientales.append("ECO")
-    if "etiqueta cero" in query_normalized or "cero" in query_normalized:
-        etiquetas_ambientales.append("Cero")
-    if "etiqueta c" in query_normalized or "c etiqueta" in query_normalized:
-        etiquetas_ambientales.append("C")
-
     filtered_models_and_prices = models_and_prices
-
-    # Filtrar por etiquetas si hay alguna
-    if etiquetas_ambientales:
-        filtered_models_and_prices = {
-            model: data for model, data in models_and_prices.items()
-            if engine_label_map.get(data.get('engine_type', ''), '').lower() in [e.lower() for e in etiquetas_ambientales]
-        }
-        if not filtered_models_and_prices:
-            etiquetas_str = " o ".join(etiquetas_ambientales)
-            return f"No se han encontrado ofertas para modelos con etiqueta {etiquetas_str.upper()} en este momento."
-
-    # Luego, filtrar por tipo de motor si se especifica
     if selected_engine_type:
         keywords = engine_types[selected_engine_type]
-        if selected_engine_type == "híbrido":
-            # Incluir tanto MHEV como PHEV
-            filtered_models_and_prices = {
-                model: data for model, data in filtered_models_and_prices.items()
-                if "híbrido" in unidecode(data.get('engine_type', '').lower())
-            }
-        else:
-            filtered_models_and_prices = {
-                model: data for model, data in filtered_models_and_prices.items()
-                if any(
-                    kw in unidecode(data.get('engine_type', '').lower())
-                    for kw in keywords
-                )
-            }
+        filtered_models_and_prices = {
+            model: data for model, data in models_and_prices.items()
+            if any(
+                kw in unidecode(data.get('engine_type', '').lower())
+                for kw in keywords
+            )
+        }
         if not filtered_models_and_prices:
-            return f"No se han encontrado ofertas para modelos con motor {selected_engine_type.upper()} en este momento."
+            return f"No se han encontrado ofertas para modelos con motor {selected_engine_type} en este momento."
+    # --- FIN Filtrado por tipo de motor ---
 
-    # --- Filtrado por precio máximo ---
-    if precio_max is not None:
-        filtered_models_fijo = []
-        filtered_models_cuota = []
-
+    # --- Nuevo filtrado por precio máximo ---
+    if precio_max is not None and tipo_precio:
+        filtered_models = []
         for model, data in filtered_models_and_prices.items():
             try:
-                if data['price_type'] == "fijo" and tipo_precio == "fijo":
-                    price = float(data['price'].replace('.', '').replace(',', '.'))
-                    if price <= precio_max:
-                        filtered_models_fijo.append((model, data))
-                elif data['price_type'] == "cuota" and tipo_precio == "cuota":
-                    total_estimado = calcular_total_cuota(data)
-                    if total_estimado is not None and total_estimado <= precio_max:
-                        filtered_models_cuota.append((model, data))
+                price = float(data['price'].replace('.', '').replace(',', '.'))
+                if data['price_type'] == tipo_precio and price <= precio_max:
+                    filtered_models.append((model, data))
             except Exception:
                 continue
 
-        if filtered_models_fijo:
-            formatted_data = f"Los precios pueden variar según la configuración. Actualmente puedes encontrar estos modelos por menos de {precio_max:.0f} €:\n\n"
-            for model, data in filtered_models_fijo:
-                etiqueta = engine_label_map.get(data.get('engine_type', ''), None)
-                formatted_data += f"• **{model} {data['description']}**"
-                if etiqueta:
-                    formatted_data += f"  \n  Etiqueta: {etiqueta}"
-                formatted_data += f"\n\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
-                formatted_data += f"\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n"
-                formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
-            formatted_data += "Si quieres ver opciones de financiación por cuota mensual, indícamelo y te mostrare las ofertas disponibles."
-            return formatted_data
-
-        elif filtered_models_cuota:
-            formatted_data = f"Actualmente puedes encontrar estos modelos con financiación (cuota mensual) por menos de {precio_max:.0f} €:\n\n"
-            for model, data in filtered_models_cuota:
-                etiqueta = engine_label_map.get(data.get('engine_type', ''), None)
-                formatted_data += f"• **{model} {data['description']}**"
-                if etiqueta:
-                    formatted_data += f"  \n  Etiqueta: {etiqueta}"
-                formatted_data += f"\n\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
-                formatted_data += f"\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n"
+        if filtered_models:
+            formatted_data = (
+                f"Los precios pueden variar según la configuración. Actualmente puedes conseguir estos modelos por menos de {precio_max:.0f} € {'al mes' if tipo_precio=='cuota' else ''}:\n\n"
+            )
+            for model, data in filtered_models:
+                formatted_data += f"• **{model} {data['description']}**\n"
+                if tipo_precio == "cuota":
+                    formatted_data += f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
+                else:
+                    formatted_data += f"\t• Desde: {data['price']} {data['price_suffix']}\n"
+                if data.get('offer_type'):
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación:<a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             return formatted_data
-
         else:
-            return f"No se han encontrado modelos con precio por debajo de {precio_max:.0f} € en este momento. Si quieres ver opciones de financiación por cuota mensual, indícamelo y te mostrare las ofertas disponibles."
+            return f"No se han encontrado modelos con {'cuota mensual' if tipo_precio=='cuota' else 'precio fijo'} por debajo de {precio_max:.0f} € en este momento."
 
     # --- Resto de la función original ---
     busca_cuota = any(word in query_normalized for word in ["cuota", "mes", "precio mensual"])
@@ -677,25 +637,23 @@ def search_web(query, models_and_prices):
             if cheapest_fijo:
                 model, price, data = cheapest_fijo
                 formatted_data += (
-                    f"• **{model} {data['description']}**\n\n"
-                    f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    #offer_type_text = data['offer_type']
-                    #formatted_data += f"\t• Tipo de financiación: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">{offer_type_text}</a>\n\n"
-                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación:<a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             
             if cheapest_cuota:
                 model, price, data = cheapest_cuota
                 formatted_data += (
-                    f"• **{model} {data['description']}**\n\n"
-                    f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    #offer_type_text = data['offer_type']
-                    #formatted_data += f"\t• Tipo de financiación: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">{offer_type_text}</a>\n\n"
-                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación:<a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             if not cheapest_fijo and not cheapest_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
@@ -710,25 +668,23 @@ def search_web(query, models_and_prices):
             if most_expensive_fijo:
                 model, price, data = most_expensive_fijo
                 formatted_data += (
-                    f"• **{model} {data['description']}**\n\n"
-                    f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    #offer_type_text = data['offer_type']
-                    #formatted_data += f"\t• Tipo de financiación: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">{offer_type_text}</a>\n\n"
-                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación:<a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             
             if most_expensive_cuota:
                 model, price, data = most_expensive_cuota
                 formatted_data += (
-                    f"• **{model} {data['description']}**\n\n"
-                    f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
+                    f"• **{model} {data['description']}**\n"
+                    f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
                 )
                 if data.get('offer_type'):
-                    #offer_type_text = data['offer_type']
-                    #formatted_data += f"\t• Tipo de financiación: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">{offer_type_text}</a>\n\n"
-                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
+                    offer_type_text = data['offer_type']
+                    formatted_data += f"\t• Tipo de financiación:<a href='https://www.cupraofficial.es/servicios-financieros' target='_blank'>{offer_type_text}</a>\n"
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             if not most_expensive_fijo and not most_expensive_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
@@ -759,128 +715,121 @@ def search_web(query, models_and_prices):
 
     for model in matched_models:
         data = filtered_models_and_prices[model]
-        # Añadir la etiqueta ambiental si el usuario filtró por etiquetas
-        etiqueta = engine_label_map.get(data.get('engine_type', ''), None)
-        if etiquetas_ambientales and etiqueta:
-            formatted_data += f"• **{model} {data['description']}**  \n  Etiqueta: {etiqueta}\n\n"
-        else:
-            formatted_data += f"• **{model} {data['description']}**\n\n"
+        formatted_data += f"• **{model} {data['description']}**\n"
         if data['price_type'] == "cuota":
-            formatted_data += f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
+            formatted_data += f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
         else:
-            formatted_data += f"\t• Desde: {data['price']} {data['price_suffix']}\n\n"
-        
+            formatted_data += f"\t• Desde: {data['price']} {data['price_suffix']}\n"
         # Añadir tipo de financiación como enlace si existe
         if data.get('offer_type'):
-            #offer_type_text = data['offer_type'] (con esto aparece el cupra-flex lo dejamos para fase 2)
-            #formatted_data += f"\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">{offer_type_text}</a>\n\n"            
-            formatted_data += (
-                "\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n"
-                )
-
+            offer_type_text = data['offer_type']
+            formatted_data += f"\t• Tipo de financiación:<a href='https://www.cupraofficial.es/servicios-financieros'target='_blank'>{offer_type_text}</a>\n"
         if data['price_type'] == "cuota" and data['price_suffix']:
             detalles = data['price_suffix'].split('|')
             for detalle in detalles:
                 detalle = detalle.strip()
                 if detalle:
-                    formatted_data += f"\t• {detalle}\n\n"
+                    formatted_data += f"\t• {detalle}\n"
         formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
 
     formatted_data += (
         "Puedes encontrar todas las ofertas disponibles [aqui](https://www.cupraofficial.es/ofertas). "
         "Si necesitas más información o deseas configurar un modelo específico, no dudes en preguntar."
     )
+
     return formatted_data
 
-def convert_links(text):
-    # Casos tipo [https://url](https://url) → <a href="url" ...>Enlace</a>
-    same_url_pattern = r'\[(https?://[^\]]+)\]\(\1\)'
-    text = re.sub(same_url_pattern, r'<a href="\1" target="_blank">Enlace</a>', text)
-
-    # Casos tipo [Texto](https://url) → <a href="url" ...>Texto</a>
-    markdown_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
-    text = re.sub(markdown_pattern, r'<a href="\2" target="_blank">\1</a>', text)
-
-    # URLs sueltas → <a href="url" ...>Ver más</a>
-    url_pattern = r'(?<!href=")(https?://[^\s<]+)'
-    text = re.sub(url_pattern,r'<a href="\1" target="_blank"> Ver más </a>', text)
-
-    # Convertir 'Tipo de financiación: texto' en enlace (solo si no hay ya un <a>)
-    text = re.sub(
-        r'Tipo de financiación: ([^<\n]+)(?=\n|$)',
-        r'Tipo de financiación: <a href="https://www.cupraofficial.es/servicios-financieros" target="_blank">\1</a>',
-        text
-    )
-    return text
 
 def extract_model_from_query(query, models_and_prices):
-    """
-    Devuelve el nombre del modelo si está en la consulta y existe en CUPRA, o None.
-    También detecta menciones parciales como 'Formentor' o 'León'.
-    """
+    """Devuelve el nombre del modelo si está en la consulta y existe en CUPRA, o None."""
     query_normalized = unidecode(query.lower())
-
     for model in models_and_prices.keys():
         model_normalized = unidecode(model.lower())
-
-        # Coincidencia exacta
         if model_normalized in query_normalized:
             return model
-
-        # Coincidencia parcial: si alguna palabra del modelo aparece en la consulta
-        model_words = model_normalized.split()
-        if any(word in query_normalized for word in model_words):
-            return model
-
     return None
 
-
 def detect_intent(prompt, models_and_prices):
-    prompt_lower = unidecode(prompt.lower())
-    print(f"[INTENT] prompt_lower = {prompt_lower}")
-    
-    # Si el usuario pregunta "qué cupra me recomiendas" exactamente, usar LLM
-    if "que cupra me recomiendas" in prompt_lower or "qué cupra me recomiendas" in prompt_lower:
-        return "llm"
-
-    price_keywords = [
-        "precio", "coste", "cuesta", "cuota", "cuotas", "comprar",
-        "vale", "oferta", "barato", "caro", "adquirir", "conseguir", "presupuesto"
-    ]
-    etiquetas_validas = ["eco", "cero", "etiqueta c", "etiqueta eco", "etiqueta cero", "gasolina"]
-    comparativos = ["más barato", "mas barato", "más caro", "mas caro"]
-
-    # Activar solo si hay palabras clave de precio o comparativos
-    if any(word in prompt_lower for word in price_keywords + comparativos + etiquetas_validas):
-        return "price"
-
-    # Si menciona un modelo CUPRA pero sin contexto de precio → usar LLM
-    model = extract_model_from_query(prompt, models_and_prices)
-    if model is not None:
-        return "llm"
-
-    # Si menciona "cupra" sin más contexto → usar LLM
-    if "cupra" in prompt_lower:
-        return "llm"
-
-    return "llm"
-
+    price_keywords = ["precio", "coste", "cuesta", "cuota", "comprar", "vale", "oferta", "barato", "caro", "adquirir", "conseguir", "presupuesto"]
+    if any(word in prompt.lower() for word in price_keywords):
+        # Comprobar si el modelo existe
+        model = extract_model_from_query(prompt, models_and_prices)
+        if model is not None or not any(unidecode(m.lower()) in unidecode(prompt.lower()) for m in models_and_prices.keys()):
+            return "price"
+        else:
+            return "model_not_found"
+    return "default"
 
 def handle_price_intent(prompt, models_and_prices):
     return search_web(prompt, models_and_prices)
 
+def handle_default_intent(prompt, models_and_prices):
+    return None
 
 def intent_dispatcher(prompt, models_and_prices):
     intent = detect_intent(prompt, models_and_prices)
     if intent == "price":
         return handle_price_intent(prompt, models_and_prices)
     elif intent == "model_not_found":
-        return (
-            "Lo siento, solo puedo ofrecer información sobre modelos CUPRA. Si hay algún modelo específico que te interese, estaré encantado de ayudarte." \
-            "Puedes encontrar todas las ofertas disponibles [aqui](https://www.cupraofficial.es/ofertas)."
-        )
-    elif intent == "llm":
-        return prompt
+        return "El modelo que has consultado no pertenece a CUPRA. Por favor, pregunta por un modelo CUPRA disponible."
+    else:
+        return handle_default_intent(prompt, models_and_prices)
+
+
+# Asegura que cada hilo tenga su ID único
+def ensure_single_thread_id():
+        if "app1_thread_id" not in st.session_state:
+            thread = client.beta.threads.create()
+            st.session_state.app1_thread_id = thread.id
+        return st.session_state.app1_thread_id
+
+
+# Función para reemplazar cada URL markdown por su versión HTML
+def replace_link(match):
+    text, url = match.groups()
+    return f'''<a href="/?redirect={url}&thread_id={st.session_state.app1_thread_id}" target="_self" style="color:blue; text-decoration:underline;">{text}</a>'''
+
+# Función para generar el código HTML a partir de la respuesta del asistente
+def generate_html(response):
+    # Expresión regular para detectar enlaces Markdown
+    pattern_link = r"\[(.*?)\]\((https?://.*?)\)"
+
+    # Convertir todas las URLs a HTML
+    texto_html = re.sub(pattern_link, replace_link, response)
+
+    # Convertir el resto de markdown a HTML
+    texto_html = mistune.markdown(texto_html)
+
+    # Convertir algunos caracteres que están en formato web
+    texto_html = re.sub(r"&lt;", "<", texto_html)
+    texto_html = re.sub(r"&gt;", ">", texto_html)
+    texto_html = re.sub(r"&quot;", "\"", texto_html)
+
+    return texto_html
+
+# Detectar el redirect en los parámetros de la página
+if ("redirect" in parameters) and ("thread_id" in parameters):
+    # Recuperar los parámetros
+    param_url = parameters["redirect"]
+    param_id = parameters["thread_id"]
+
+    # Recuperar la variable session_state que está persistida en la base de datos
+    try:
+        item = container_status.read_item(item=param_id, partition_key=param_id)
+        st.session_state.update(item.get("session_state", {}))
+    except exceptions.CosmosResourceNotFoundError:
+        st.session_state.urls = []
+
+    # Registrar el nuevo click en el array
+    if not any(item["url_clicked"] == param_url for item in st.session_state.urls):
+        st.session_state.urls.append({"url_clicked": param_url})
+
+    # Volver a grabar en base de datos
+    save_conversation_history(st.session_state.app1_messages)
+
+    # Limpiar la variable redirect de la URL
+    st.query_params.clear()
+
 
 
 def app1():
@@ -945,10 +894,8 @@ def app1():
                             <p style="font-size:12px; color:#000000; background-color:#F0F0F0; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
-                                    {clean_annotations(message['content'])}
-                            </p>
-                        </div>
-                    </div>
+                                    {generate_html(clean_annotations(message['content']))}
+
                 """, unsafe_allow_html=True)
                    
             else:
@@ -969,28 +916,20 @@ def app1():
                 """, unsafe_allow_html=True)
                                         
     # Entrada del usuario
-    prompt = st.chat_input("Escribe tu mensaje aquí...", max_chars=150)
+    prompt = st.chat_input("Escribe tu mensaje aquí...", max_chars=100)
 
     if prompt:
         thread_id = ensure_single_thread_id()
 
-        intent = detect_intent(prompt, models_and_prices)
-        car_data_text = None
+        car_data_text = intent_dispatcher(prompt, models_and_prices)
 
-        if intent == "price":
-            car_data_text = handle_price_intent(prompt, models_and_prices)
+        if car_data_text:
             user_prompt = (
                 f"{prompt}\n\n"
                 "IMPORTANTE: A continuación se proporciona información oficial sobre ofertas y modelos extraída del sitio web de CUPRA España. "
-                "Siempre que indiques precios debes indicar al inicio de todas las respuestas: Los precios pueden variar según la configuración. Actualmente las oferta disponibles es..."
+                "Debes indicar al inicio de todas las respuestas: Los precios pueden variar según la configuración. Actualmente las oferta disponibles es..."
                 "Incluye *toda* esta información en tu respuesta sin omitir ni modificar nada:\n\n"
                 f"{car_data_text}"
-            )
-        elif intent == "model_not_found":
-            user_prompt = (
-                "Lo siento, solo puedo ofrecer información sobre modelos CUPRA."
-                "Si hay algún modelo específico que te interese, estaré encantado de ayudarte. Puedes encontrar todas las ofertas disponibles aquí: "
-                "https://www.cupraofficial.es/ofertas."
             )
         else:
             user_prompt = prompt
@@ -1024,10 +963,10 @@ def app1():
             for chunk in stream_generator(user_prompt, thread_id, assistant_id):
                 response = chunk
                 cleaned_response = clean_annotations(response)
-
-                # Convertir las URLs en enlaces clicables
-                cleaned_response_with_links = convert_links(cleaned_response)
-                
+                print(f"Assistant: {cleaned_response}")
+                html_response = generate_html(cleaned_response)
+                print(f"Assistant: {html_response}")
+      
                 response_placeholder.markdown(f"""
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -10px;">
@@ -1037,11 +976,10 @@ def app1():
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1; word-break: break-word; overflow-x: auto;">
                             <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
-                                {cleaned_response_with_links}
-                            
+                                {html_response}
                 """, unsafe_allow_html=True)
         
-            response = cleaned_response_with_links
+            response = cleaned_response
 
         # Añadir la respuesta al historial
         st.session_state.app1_messages.append({"role": "assistant", "content": response})
@@ -1051,6 +989,10 @@ def app1():
 
         print(f"Assistant: {response}")
         print(f"Assistant (cleaned): {cleaned_response}")
+
+    # Elemento vacío que forzará el scroll
+    time.sleep(0.1)
+    st.markdown("<div id='bottom-marker'></div>", unsafe_allow_html=True)
 
     # Mostrar las estrellas después de la tercera iteración y si no se ha puntuado antes
     if (len(st.session_state.app1_messages) == 7) or ((len(st.session_state.app1_messages) == 9) and (not st.session_state.get("star_rating_given", False))):
