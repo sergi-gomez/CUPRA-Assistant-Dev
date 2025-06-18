@@ -64,7 +64,7 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
         localStorage.setItem("redirect_last_ts", currentTs);
         setTimeout(() => {{
             window.open("{param_url}", "_blank", "noopener,noreferrer");
-        }}, 500);
+        }}, 1000);
     }}
     </script>
     """, height=200)
@@ -856,27 +856,6 @@ def search_web(query, models_and_prices):
     )
     return formatted_data
 
-def convert_links(text):
-    # Casos tipo [https://url](https://url) → <a href="url" ...>Enlace</a>
-    same_url_pattern = r'\[(https?://[^\]]+)\]\(\1\)'
-    text = re.sub(same_url_pattern, r'<a href="\1" target="_blank">Enlace</a>', text)
-
-    # Casos tipo [Texto](https://url) → <a href="url" ...>Texto</a>
-    markdown_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
-    text = re.sub(markdown_pattern, r'<a href="\2" target="_blank">\1</a>', text)
-
-    # URLs sueltas → <a href="url" ...>Ver más</a>
-    url_pattern = r'(?<!href=")(https?://[^\s<]+)'
-    text = re.sub(url_pattern,r'<a href="\1" target="_blank"> Ver más </a>', text)
-
-    # Convertir 'Tipo de financiación: texto' en enlace (solo si no hay ya un <a>)
-    text = re.sub(
-        r'Tipo de financiación: ([^<\n]+)(?=\n|$)',
-        r'Tipo de financiación: <a href="https://www.cupraofficial.es/servicios-financieros" target="_blank">\1</a>',
-        text
-    )
-    return text
-
 def extract_model_from_query(query, models_and_prices):
     """
     Devuelve el nombre del modelo si está en la consulta y existe en CUPRA, o None.
@@ -964,6 +943,13 @@ def generate_html(response):
     texto_html = re.sub(r"&gt;", ">", texto_html)
     texto_html = re.sub(r"&quot;", "\"", texto_html)
 
+    # Convertir 'Tipo de financiación: texto' en enlace (solo si no hay ya un <a>)
+    texto_html = re.sub(
+        r'Tipo de financiación: ([^<\n]+)(?=\n|$)',
+        r'Tipo de financiación: <a href="https://www.cupraofficial.es/servicios-financieros" target="_blank">\1</a>',
+        texto_html
+    )
+ 
     return texto_html
 
 # Detectar el redirect en los parámetros de la página
