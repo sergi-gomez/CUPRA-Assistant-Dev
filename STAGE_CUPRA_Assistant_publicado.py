@@ -42,32 +42,16 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
 
     # Inyectar HTML con JS que usa localStorage y timestamp
     html(f"""
-    <div id="spinner" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        z-index: 9999; display: none; text-align: center;">
-    <div style="border: 10px solid #f3f3f3; border-top: 10px solid #000000; border-radius: 50%;
-        width: 70px; height: 70px; animation: spin 1s linear infinite; margin: auto;"></div>
-    <p style="margin-top: 16px; font-size: 12px; color: #000000; font-family: 'CupraScreen-Book', sans-serif;">Cargando...</p>
-    </div>
-
-    <style>
-    @keyframes spin {{
-    0% {{ transform: rotate(0deg); }}
-    100% {{ transform: rotate(360deg); }}
-    }}
-    </style>
-
     <script>
-    const currentTs = "{url_timestamp}";
-    const lastTs = localStorage.getItem("redirect_last_ts");
-    if (lastTs !== currentTs) {{
-        document.getElementById("spinner").style.display = "block";
-        localStorage.setItem("redirect_last_ts", currentTs);
-        setTimeout(() => {{
+        const currentTs = "{url_timestamp}";
+        const lastTs = localStorage.getItem("redirect_last_ts");
+
+        if (lastTs !== currentTs) {{
+            localStorage.setItem("redirect_last_ts", currentTs);
             window.open("{param_url}", "_blank", "noopener,noreferrer");
-        }}, 1000);
-    }}
+        }}
     </script>
-    """, height=200)
+    """, height=0)
 
 # CSS para ocultar la barra superior
 hide_streamlit_style = """
