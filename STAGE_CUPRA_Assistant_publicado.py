@@ -1,4 +1,4 @@
-#CUPRA AI Assistant, entorno TEST, v3.0, Publicado Stage: 10/07/2025, funcionalidad Ofertas ESP + cuotas + dispacher (intent) + URLs + Safari
+#CUPRA AI Assistant, entorno TEST, v3.0, Publicado: 11/07/2025, funcionalidad Ofertas ESP + cuotas + dispacher (intent) + URLs + Safari
 
 import streamlit as st 
 import time
@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 # Obtener los parámetros de la página
-parameters = st.query_params 
+parameters = st.query_params
 
 # Inicializa la lista de URLs
 if "urls" not in st.session_state:
@@ -40,15 +40,28 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
     # Obtener timestamp actual (segundo actual, como string)
     url_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    # Inyectar HTML con JS que usa localStorage y timestamp
+    # HTML con JS: Safari ➝ botón / Otros ➝ auto-redirección
     html(f"""
     <script>
         const currentTs = "{url_timestamp}";
         const lastTs = localStorage.getItem("redirect_last_ts");
 
-        if (lastTs !== currentTs) {{
+        const isSafari = navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome");
+
+        if (!isSafari && lastTs !== currentTs) {{
             localStorage.setItem("redirect_last_ts", currentTs);
             window.open("{param_url}", "_blank", "noopener,noreferrer");
+            window.location.href = "/";
+        }} else if (isSafari) {{
+            document.body.innerHTML = `
+                <div style="padding:20px; text-align:center;">
+                    <p style="font-size:18px;">Haz clic en el botón para continuar:</p>
+                    <button onclick="window.open('{param_url}', '_blank', 'noopener,noreferrer'); window.location.href='/'"
+                            style="padding:10px 20px; font-size:16px; background-color:#0057B8; color:white; border:none; border-radius:8px; cursor:pointer;">
+                        Continuar al enlace
+                    </button>
+                </div>
+            `;
         }}
     </script>
     """, height=0)
@@ -617,7 +630,7 @@ def search_web(query, models_and_prices):
     if "etiqueta eco" in query_normalized or "eco" in query_normalized:
         etiquetas_ambientales.append("ECO")
     if "etiqueta cero" in query_normalized or "cero" in query_normalized:
-        etiquetas_ambientales.append("C")
+        etiquetas_ambientales.append("Cero")
     if "etiqueta c" in query_normalized or "c etiqueta" in query_normalized:
         etiquetas_ambientales.append("C")
 
@@ -679,7 +692,7 @@ def search_web(query, models_and_prices):
                 if etiqueta:
                     formatted_data += f"  \n  Etiqueta: {etiqueta}"
                 formatted_data += f"\n\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
-                formatted_data += f"\t• Servicios Financieros: [Ver más](https://www.cupraofficial.es/servicios-financieros)\n"
+                formatted_data += f"\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n"
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             formatted_data += "Si quieres ver opciones de financiación por cuota mensual, indícamelo y te mostrare las ofertas disponibles."
             return formatted_data
@@ -692,7 +705,7 @@ def search_web(query, models_and_prices):
                 if etiqueta:
                     formatted_data += f"  \n  Etiqueta: {etiqueta}"
                 formatted_data += f"\n\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n"
-                formatted_data += f"\t• Servicios Financieros: [Ver más](https://www.cupraofficial.es/servicios-financieros)\n"
+                formatted_data += f"\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n"
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             return formatted_data
 
@@ -739,7 +752,7 @@ def search_web(query, models_and_prices):
                     f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += ("\t• Servicios Financieros: [Ver más](https://www.cupraofficial.es/servicios-financieros)\n\n")
+                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             
             if cheapest_cuota:
@@ -749,7 +762,7 @@ def search_web(query, models_and_prices):
                     f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += ("\t• Servicios Financieros: [Ver más](https://www.cupraofficial.es/servicios-financieros)\n\n")
+                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             if not cheapest_fijo and not cheapest_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
@@ -768,7 +781,7 @@ def search_web(query, models_and_prices):
                     f"\t• Desde: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += ("\t• Servicios Financieros: [Ver más](https://www.cupraofficial.es/servicios-financieros)\n\n")
+                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             
             if most_expensive_cuota:
@@ -778,7 +791,7 @@ def search_web(query, models_and_prices):
                     f"\t• Por: {data['price']} {data.get('price_currency','')} {data['price_suffix']}\n\n"
                 )
                 if data.get('offer_type'):
-                    formatted_data += ("\t• Servicios Financieros: [Ver más](https://www.cupraofficial.es/servicios-financieros)\n\n")
+                    formatted_data += ("\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n")
                 formatted_data += f"\t• [Más información de la oferta]({data['info_link']})\n\n"
             if not most_expensive_fijo and not most_expensive_cuota:
                 formatted_data += "No se encontraron modelos con precios disponibles.\n"
@@ -823,7 +836,7 @@ def search_web(query, models_and_prices):
         # Añadir tipo de financiación como enlace si existe
         if data.get('offer_type'):
             formatted_data += (
-                "\t• Servicios Financieros: [Ver más](https://www.cupraofficial.es/servicios-financieros)\n\n"
+                "\t• Servicios Financieros: <a href=\"https://www.cupraofficial.es/servicios-financieros\" target=\"_blank\">Ver más</a>\n\n"
                 )
 
         if data['price_type'] == "cuota" and data['price_suffix']:
@@ -907,32 +920,17 @@ def intent_dispatcher(prompt, models_and_prices):
     elif intent == "llm":
         return prompt
 
-# Función para reemplazar cada URL markdown por su versión HTML compatible con Safari
+# Función para reemplazar cada URL markdown por su versión HTML
 def replace_link(match):
     text, url = match.groups()
-    thread_id = st.session_state.app1_thread_id
-    tracking_url = f"/?redirect={url}&thread_id={thread_id}"
-    # Solo popup en Safari, en el resto abre en nueva pestaña con tracking
-    return (
-        f'<a href="{tracking_url}" target="_blank" style="color:blue; text-decoration:underline;" '
-        f'onclick="function isSafari() {{ return /^((?!chrome|android|crios|fxios|edgios|opera|opr\\/).)*safari/i.test(navigator.userAgent); }}'
-        f'if(isSafari()) {{ event.preventDefault();'
-        f'if(!document.getElementById(\'safari-redirect-msg\')){{'
-        f'var div = document.createElement(\'div\');'
-        f'div.id = \'safari-redirect-msg\';'
-        f'div.style = \'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(255,255,255,0.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;\';'
-        f'div.innerHTML = \'<p style=&quot;font-size:18px;color:#000;&quot;>Haz click en el botón para abrir el enlace:</p>'
-        f'<a href=&quot;{tracking_url}&quot; style=&quot;font-size:18px;color:#329B93;text-decoration:underline;padding:12px 24px;border-radius:8px;background:#fff;border:1px solid #329B93;&quot; target=&quot;_self&quot;>Abrir enlace</a>\';'
-        f'document.body.appendChild(div);'
-        f'}} return false;}}">{text}</a>'
-    )
+    return f'''<a href="/?redirect={url}&thread_id={st.session_state.app1_thread_id}" target="_self" style="color:blue; text-decoration:underline;">{text}</a>'''
 
 # Función para generar el código HTML a partir de la respuesta del asistente
 def generate_html(response):
     # Expresión regular para detectar enlaces Markdown
     pattern_link = r"\[(.*?)\]\((https?://.*?)\)"
 
-    # Convertir todas las URLs a HTML con tracking
+    # Convertir todas las URLs a HTML
     texto_html = re.sub(pattern_link, replace_link, response)
 
     # Convertir el resto de markdown a HTML
@@ -943,6 +941,13 @@ def generate_html(response):
     texto_html = re.sub(r"&gt;", ">", texto_html)
     texto_html = re.sub(r"&quot;", "\"", texto_html)
 
+    # Convertir 'Tipo de financiación: texto' en enlace (solo si no hay ya un <a>)
+    texto_html = re.sub(
+        r'Tipo de financiación: ([^<\n]+)(?=\n|$)',
+        r'Tipo de financiación: <a href="https://www.cupraofficial.es/servicios-financieros" target="_blank">\1</a>',
+        texto_html
+    )
+ 
     return texto_html
 
 # Detectar el redirect en los parámetros de la página
@@ -971,7 +976,7 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
 def app1():
     
     #Assistant ID de TEST
-    assistant_id = os.getenv('assistant_id_test')
+    assistant_id = os.getenv('Assistant_id_test')
 
     # Extraemos los modelos y precios de la página web una vez
     url = "https://www.cupraofficial.es/ofertas"
