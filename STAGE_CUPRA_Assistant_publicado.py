@@ -40,12 +40,11 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
     # Obtener timestamp actual (segundo actual, como string)
     url_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    # HTML con JS: Safari ➝ botón / Otros ➝ auto-redirección
+    # HTML con JS: Safari ➝ enlace / Otros ➝ auto-redirección
     html(f"""
     <script>
         const currentTs = "{url_timestamp}";
         const lastTs = localStorage.getItem("redirect_last_ts");
-
         const isSafari = navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome");
 
         if (!isSafari && lastTs !== currentTs) {{
@@ -55,11 +54,12 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
         }} else if (isSafari) {{
             document.body.innerHTML = `
                 <div style="padding:20px; text-align:center;">
-                    <p style="font-size:18px;">Haz clic en el botón para continuar:</p>
-                    <button onclick="window.open('{param_url}', '_blank', 'noopener,noreferrer'); window.location.href='/'"
-                            style="padding:10px 20px; font-size:16px; background-color:#0057B8; color:white; border:none; border-radius:8px; cursor:pointer;">
-                        Continuar al enlace
-                    </button>
+                    <p style="font-size:18px;">Haz clic en el enlace para continuar:</p>
+                    <a href='{param_url}' target='_blank' rel='noopener noreferrer'
+                       style='padding:10px 20px; font-size:16px; background-color:#0057B8; color:white; border:none; border-radius:8px; cursor:pointer; text-decoration:none; display:inline-block;'
+                       onclick='window.location.href="/";'>
+                       Continuar al enlace
+                    </a>
                 </div>
             `;
         }}
@@ -71,14 +71,16 @@ hide_streamlit_style = """
 <style>
 
 @font-face {
-            font-family: 'CupraScreen-Book';
+            font-family: 'Cupra-Regular';
             src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/otf/Cupra-Regular.otf') format("opentype");
+            src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/woff2/Cupra-Regular.woff2') format("woff2");  
+	        src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/woff/Cupra-Regular.woff') format("woff");
+            src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/ttf/Cupra-Regular.ttf') format("ttf");
             font-weight: normal; 
             font-style: normal;
         } 
-
 * { 
-    font-family: 'CupraScreen-Book', 'sans-serif' !important;
+    font-family: 'Cupra-Regular' !important;
     font-size: 12px !important; 
 } 
 
@@ -194,7 +196,7 @@ div.stChatMessage {
 
 /* Ajustar los estilos del campo de entrada */
 textarea[aria-label="Escribe tu mensaje aquí..."] {
-    font-family: 'CupraScreen-Book', 'sans-serif' !important; 
+    font-family: 'Cupra-Regular !important; 
     font-size: 12px !important; 
     color: #000000 !important; 
     background-color: #ffffff !important;
