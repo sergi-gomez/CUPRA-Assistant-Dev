@@ -1,4 +1,4 @@
-#CUPRA AI Assistant, entorno TEST, v3.0, Publicado: 11/07/2025, funcionalidad Ofertas ESP + cuotas + dispacher (intent) + URLs + Safari
+#CUPRA AI Assistant, entorno TEST, v3.0, Publicado: 18/07/2025, funcionalidad Ofertas ESP + cuotas + dispacher (intent) + URLs + Tipografia + Safari
 
 import streamlit as st 
 import time
@@ -40,28 +40,20 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
     # Obtener timestamp actual (segundo actual, como string)
     url_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    # HTML con JS: Safari ➝ enlace / Otros ➝ auto-redirección
+    # Inyectar HTML con JS que usa localStorage y timestamp
     html(f"""
     <script>
         const currentTs = "{url_timestamp}";
         const lastTs = localStorage.getItem("redirect_last_ts");
-        const isSafari = navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome");
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-        if (!isSafari && lastTs !== currentTs) {{
+        if (lastTs !== currentTs) {{
             localStorage.setItem("redirect_last_ts", currentTs);
             window.open("{param_url}", "_blank", "noopener,noreferrer");
-            window.location.href = "/";
-        }} else if (isSafari) {{
-            document.body.innerHTML = `
-                <div style="padding:20px; text-align:center;">
-                    <p style="font-size:18px;">Haz clic en el enlace para continuar:</p>
-                    <a href='{param_url}' target='_blank' rel='noopener noreferrer'
-                       style='padding:10px 20px; font-size:16px; background-color:#0057B8; color:white; border:none; border-radius:8px; cursor:pointer; text-decoration:none; display:inline-block;'
-                       onclick='window.location.href="/";'>
-                       Continuar al enlace
-                    </a>
-                </div>
-            `;
+            if (!isSafari) {{
+                // Solo registrar el click si NO es Safari (recarga la página)
+                window.location.href = window.location.pathname;
+            }}
         }}
     </script>
     """, height=0)
@@ -71,17 +63,16 @@ hide_streamlit_style = """
 <style>
 
 @font-face {
-            font-family: 'Cupra-Regular';
-            src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/otf/Cupra-Regular.otf') format("opentype");
-            src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/woff2/Cupra-Regular.woff2') format("woff2");  
-	        src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/woff/Cupra-Regular.woff') format("woff");
-            src:url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/clientlibs/resources/fonts/ttf/Cupra-Regular.ttf') format("ttf");
-            font-weight: normal; 
-            font-style: normal;
-        } 
+  font-family: 'Cupra-Regular';
+  src: url('https://www.cupraofficial.com/etc.clientlibs/cupra-website/components/page/base/clientlibs-old/resources/fonts/otf/Cupra-Regular.otf') format('opentype'),
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+  }
+
 * { 
-    font-family: 'Cupra-Regular' !important;
-    font-size: 12px !important; 
+    font-family: 'Cupra-Regular'!important;
+    font-size: 14px !important; 
 } 
 
 MainMenu {visibility: hidden;}
@@ -112,6 +103,7 @@ textarea[data-testid="stChatInputTextArea"],
     border-radius: 20px !important;
     box-shadow: none !important;
     outline: none !important;
+    border-color: #cccccc !important; 
 }
 
 /* Asegurar fondo blanco en modo oscuro también */
@@ -196,8 +188,8 @@ div.stChatMessage {
 
 /* Ajustar los estilos del campo de entrada */
 textarea[aria-label="Escribe tu mensaje aquí..."] {
-    font-family: 'Cupra-Regular !important; 
-    font-size: 12px !important; 
+    font-family: 'Cupra-Regular' !important; 
+    font-size: 14px !important; 
     color: #000000 !important; 
     background-color: #ffffff !important;
     caret-color: #8B8B8B !important; 
@@ -978,7 +970,7 @@ if ("redirect" in parameters) and ("thread_id" in parameters):
 def app1():
     
     #Assistant ID de TEST
-    assistant_id = os.getenv('Assistant_id_test')
+    assistant_id = os.getenv('Assistant_id_spain')
 
     # Extraemos los modelos y precios de la página web una vez
     url = "https://www.cupraofficial.es/ofertas"
@@ -1006,7 +998,7 @@ def app1():
         current_time = datetime.now().strftime("%Y-%m-%d")
 
         st.markdown(
-            f"<p style='font-size:12px; color:#000000; margin:0; text-align:left;'>{current_time}</p>",
+            f"<p style='font-size:14px; color:#000000; margin:0; text-align:left;'>{current_time}</p>",
             unsafe_allow_html=True,
             )
 
@@ -1028,10 +1020,10 @@ def app1():
                     <div style="max-width: 95%; margin-left: -10px; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -20px;">
                         <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}</div>
-                        <div style="max-width: 600px; width: 100%; background-color: #F0F0F0; padding: 12px; 
+                        <div style="max-width: 600px; width: 100%; background-color: #F0F0F0; padding: 14px; 
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1; word-break: break-word; overflow-x: auto;">
-                            <p style="font-size:12px; color:#000000; background-color:#F0F0F0; 
+                            <p style="font-size:14px; color:#000000; background-color:#F0F0F0; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal;word-wrap: break-word;">
                                     {generate_html(clean_annotations(message['content']))}
@@ -1043,10 +1035,10 @@ def app1():
                 st.markdown(f"""
                     <div style="max-width: 75%; margin-left: auto; overflow-wrap: break-word; display: flex; 
                             align-items: flex-end; flex-direction: row-reverse; gap: 5px; margin-bottom: -20px;">
-                        <div style="background-color: #D3D3D3; padding: 12px; 
+                        <div style="background-color: #D3D3D3; padding: 14px; 
                                 border-radius: 20px 20px 0px 20px; border: 0px solid #A4C8F0; 
                                 flex-grow: 1;">
-                            <p style="font-size:12px; color:#000000; background-color:#D3D3D3; 
+                            <p style="font-size:14px; color:#000000; background-color:#D3D3D3; 
                                 line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                                 padding:0px; white-space:normal; word-wrap: break-word;">
                                     {clean_annotations(message['content'])}
@@ -1090,7 +1082,7 @@ def app1():
                     <div style="background-color: #D3D3D3; padding: 10px; 
                             border-radius: 20px 20px 0px 20px; border: 0px solid #A4C8F0; 
                             flex-grow: 1;">
-                        <p style="font-size:12px; color: #000000; background-color: #D3D3D3; 
+                        <p style="font-size:14px; color: #000000; background-color: #D3D3D3; 
                         line-height:1.5; margin:0; text-align:left; border-radius:5px; 
                         padding:0px; white-space:normal; word-wrap: break-word;">
                             {prompt}
@@ -1120,10 +1112,10 @@ def app1():
                             align-items: flex-end; flex-direction: row; gap: 5px; margin-bottom: -10px;">
                         <div style="width: 32px; height: 32px; flex-shrink: 0;">{icon_svg}
                         </div>
-                        <div style="max-width: 600px; width: 100%; background-color: #F0F0F0; padding: 12px; 
+                        <div style="max-width: 600px; width: 100%; background-color: #F0F0F0; padding: 14px; 
                                 border-radius: 20px 20px 20px 0px; border: 0px solid #D1D1D1; 
                                 flex-grow: 1; word-break: break-word; overflow-x: auto;">
-                            <p style='font-size:12px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
+                            <p style='font-size:14px !important; color:#000000 !important; line-height:1.5; margin:0; text-align:left; white-space: normal;'>
                                 {html_response}
                 """, unsafe_allow_html=True)
         
